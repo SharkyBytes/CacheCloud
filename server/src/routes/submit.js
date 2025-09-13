@@ -56,6 +56,7 @@ const handleSubmit = async (req, res) => {
         
         // Add job to queue
         const job = await job_queue.add('process-repo', jobPayload, {
+            memory_limit:memory_limit,
             jobId,
             attempts: 3,
             backoff: {
