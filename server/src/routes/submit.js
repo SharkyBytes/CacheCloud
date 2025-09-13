@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { job_queue } from "../queue/job_queue.js";
+import { jobQueue, QUEUE_CONFIG } from "../queue/index.js";
 import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
@@ -128,15 +128,15 @@ const handleSubmit = async (req, res) => {
         console.log(`[INFO] Submitting job: ${jobId}`);
         
         // Add job to queue
-        const job = await job_queue.add('process-repo', jobPayload, {
+        const job = await jobQueue.add('process-repo', jobPayload, {
             jobId,
-            attempts: 3,
+            attempts: QUEUE_CONFIG.retryAttempts,
             backoff: {
-                type: 'exponential',
-                delay: 5000
+                type: QUEUE_CONFIG.retryBackoffType,
+                delay: QUEUE_CONFIG.retryBackoffDelay
             },
-            removeOnComplete: false,
-            removeOnFail: false
+            removeOnComplete: QUEUE_CONFIG.removeOnComplete,
+            removeOnFail: QUEUE_CONFIG.removeOnFail
         });
 
         console.log(`[SUCCESS] Job added to queue with ID: ${job.id}`);

@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { job_queue } from "../queue/job_queue.js";
+import { jobQueue } from "../queue/index.js";
 
 const router = Router();
 
@@ -7,7 +7,7 @@ const router = Router();
 router.get("/:jobId", async (req, res) => {
   try {
     const { jobId } = req.params;
-    const job = await job_queue.getJob(jobId);
+    const job = await jobQueue.getJob(jobId);
     
     if (!job) {
       return res.status(404).json({ 
@@ -42,7 +42,7 @@ router.get("/:jobId", async (req, res) => {
 // Get job history
 router.get("/", async (req, res) => {
   try {
-    const jobs = await job_queue.getJobs(['completed', 'failed', 'active', 'waiting', 'delayed']);
+    const jobs = await jobQueue.getJobs(['completed', 'failed', 'active', 'waiting', 'delayed']);
     
     const jobsData = await Promise.all(jobs.map(async (job) => {
       const state = await job.getState();
