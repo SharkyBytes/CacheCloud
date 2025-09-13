@@ -23,6 +23,9 @@ importers:
       ioredis:
         specifier: ^5.7.0
         version: 5.7.0
+      uuid:
+        specifier: ^9.0.1
+        version: 9.0.1
     devDependencies:
       nodemon:
         specifier: ^3.1.10
