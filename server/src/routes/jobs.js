@@ -1,0 +1,76 @@
+import { Router } from "express";
+import { job_queue } from "../queue/job_queue.js";
+
+const router = Router();
+
+// Get job status
+router.get("/:jobId", async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const job = await job_queue.getJob(jobId);
+    
+    if (!job) {
+      return res.status(404).json({ 
+        success: false, 
+        error: "Job not found" 
+      });
+    }
+    
+    const state = await job.getState();
+    const result = job.returnvalue;
+    
+    res.status(200).json({
+      success: true,
+      jobId: job.id,
+      status: state,
+      data: job.data,
+      result: result || null,
+      progress: job.progress || 0,
+      createdAt: job.timestamp,
+      processedAt: job.processedOn,
+      finishedAt: job.finishedOn
+    });
+  } catch (err) {
+    console.error("[ERROR] Failed to get job status:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to get job status"
+    });
+  }
+});
+
+// Get job history
+router.get("/", async (req, res) => {
+  try {
+    const jobs = await job_queue.getJobs(['completed', 'failed', 'active', 'waiting', 'delayed']);
+    
+    const jobsData = await Promise.all(jobs.map(async (job) => {
+      const state = await job.getState();
+      return {
+        jobId: job.id,
+        status: state,
+        data: {
+          git_link: job.data.git_link,
+          runtime: job.data.runtime,
+          submitted_at: job.data.submitted_at
+        },
+        createdAt: job.timestamp,
+        processedAt: job.processedOn,
+        finishedAt: job.finishedOn
+      };
+    }));
+    
+    res.status(200).json({
+      success: true,
+      jobs: jobsData
+    });
+  } catch (err) {
+    console.error("[ERROR] Failed to get job history:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message || "Failed to get job history"
+    });
+  }
+});
+
+export default router;

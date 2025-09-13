@@ -4,18 +4,24 @@ import { v4 as uuidv4 } from 'uuid';
 
 const router = Router();
 
-router.get("/", async (req, res) => {
+// Handle both GET and POST requests
+const handleSubmit = async (req, res) => {
     try {
-        const { 
-            git_link, 
-            start_directory = "", 
-            initial_cmds = ["npm install"], 
-            env_file = ".env", 
-            build_cmd = "node index.js",
-            memory_limit = "512MB",
-            timeout = 300000, // 5 minutes in milliseconds
-            runtime = "nodejs" // nodejs, python, etc.
-        } = req.body;
+        // Get data from either query params (GET) or request body (POST)
+        const data = req.method === 'GET' ? req.query : req.body;
+        
+        // Parse the data properly
+        const git_link = data.git_link;
+        const start_directory = data.start_directory || "";
+        const initial_cmds = Array.isArray(data.initial_cmds) 
+            ? data.initial_cmds 
+            : (data.initial_cmds ? [data.initial_cmds] : ["npm install"]);
+        const env_file = data.env_file; // Optional, no default
+        const build_cmd = data.build_cmd || "node index.js";
+        const memory_limit = data.memory_limit || "512MB";
+        const timeout = parseInt(data.timeout) || 300000;
+        const runtime = data.runtime || "nodejs";
+        const env = data.env || {};
 
         // Validate required fields
         if (!git_link) {
@@ -25,21 +31,26 @@ router.get("/", async (req, res) => {
             });
         }
 
-        // Generate a unique job ID
-        const jobId = uuidv4().substring(0, 8);
+        // Generate a unique job ID (ensure it's a string with a letter prefix)
+        const jobId = 'job_' + uuidv4().substring(0, 8);
 
         // Create job payload
         const jobPayload = {
             git_link,
             start_directory,
             initial_cmds,
-            env_file,
             build_cmd,
             memory_limit,
             timeout,
             runtime,
-            submitted_at: new Date().toISOString()
+            submitted_at: new Date().toISOString(),
+            env
         };
+        
+        // Only add env_file if it's provided
+        if (env_file) {
+            jobPayload.env_file = env_file;
+        }
 
         console.log(`[INFO] Submitting job: ${jobId}`);
         
@@ -70,6 +81,10 @@ router.get("/", async (req, res) => {
             error: err.message || "Failed to submit job"
         });
     }
-});
+};
+
+// Register both GET and POST handlers
+router.get("/", handleSubmit);
+router.post("/", handleSubmit);
 
 export default router;
