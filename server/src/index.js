@@ -5,7 +5,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import submitRouter from './routes/submit.js';
 import jobsRouter from './routes/jobs.js';
-import './queue/job_processor.js'; // Import to start the worker
+import { jobWorker } from './queue/index.js'; 
 
 const app = express();
 app.use(cors());
