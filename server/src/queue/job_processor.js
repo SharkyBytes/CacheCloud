@@ -14,11 +14,48 @@ const connection = new IORedis(redis_connection_string, {
 });
 
 // Configuration
-const MAX_CONCURRENT_CONTAINERS = 3;
 const WORKSPACE_DIR = path.join(os.tmpdir(), 'e6data-workspaces');
 
-// Track active containers
+// System resource management
+const DEFAULT_MAX_CONTAINERS = 10;
+const CONTAINER_MEMORY_ESTIMATE = 512; // MB per container
+let maxConcurrentContainers = DEFAULT_MAX_CONTAINERS;
+
+// Track active containers and resources
 let activeContainers = 0;
+
+// Calculate max concurrent containers based on available system resources
+async function calculateMaxContainers() {
+  try {
+    const totalMemoryMB = Math.floor(os.totalmem() / (1024 * 1024));
+    const freeMemoryMB = Math.floor(os.freemem() / (1024 * 1024));
+    
+    // Reserve 20% of total memory or 1GB (whichever is smaller) for the system
+    const reservedMemoryMB = Math.min(totalMemoryMB * 0.2, 1024);
+    
+    // Calculate available memory for containers
+    const availableMemoryMB = totalMemoryMB  - reservedMemoryMB;
+    
+    // Calculate max containers based on memory
+    const memoryBasedLimit = Math.floor(availableMemoryMB / CONTAINER_MEMORY_ESTIMATE);
+    
+    // Get CPU count and use 75% of available cores
+    const cpuCount = os.cpus().length;
+    const cpuBasedLimit = Math.max(1, Math.floor(cpuCount * 0.75));
+    
+    // Use the smaller of the two limits
+    const calculatedLimit = Math.max(1, Math.min(memoryBasedLimit, cpuBasedLimit));
+    
+    console.log(`[RESOURCES] System has ${totalMemoryMB}MB total memory, ${freeMemoryMB}MB free memory`);
+    console.log(`[RESOURCES] System has ${cpuCount} CPU cores`);
+    console.log(`[RESOURCES] Calculated container limit: ${calculatedLimit} (memory: ${memoryBasedLimit}, CPU: ${cpuBasedLimit})`);
+    
+    return calculatedLimit;
+  } catch (error) {
+    console.error('[ERROR] Failed to calculate max containers:', error);
+    return DEFAULT_MAX_CONTAINERS;
+  }
+}
 
 // Create workspace directory if it doesn't exist
 async function ensureWorkspaceDir() {
@@ -26,21 +63,37 @@ async function ensureWorkspaceDir() {
   console.log(`Workspace directory created at ${WORKSPACE_DIR}`);
 }
 
-// Check system resources
+// Check system resources and recalculate limits if needed
 async function checkResources() {
+  // Recalculate max containers based on current system resources
+  // Do this periodically (every 5 job checks) to adapt to changing system load
+  if (activeContainers % 5 === 0) {
+    maxConcurrentContainers = await calculateMaxContainers();
+  }
+  
   // Check if we have capacity for another container
-  if (activeContainers >= MAX_CONCURRENT_CONTAINERS) {
+  if (activeContainers >= maxConcurrentContainers) {
+    console.log(`[RESOURCES] No capacity for new containers: ${activeContainers}/${maxConcurrentContainers} active`);
     return false;
   }
   
-  // Could add more sophisticated checks here (CPU, memory, etc.)
+  // Check current system memory
+  const freeMemoryMB = Math.floor(os.freemem() / (1024 * 1024));
+  if (freeMemoryMB < CONTAINER_MEMORY_ESTIMATE * 1.5) {
+    console.log(`[RESOURCES] Insufficient memory: ${freeMemoryMB}MB free, need ${CONTAINER_MEMORY_ESTIMATE * 1.5}MB`);
+    return false;
+  }
+  
   return true;
 }
 
 // Run a job in a Docker container
 async function runInDocker(job) {
   const { 
+    submission_type = "git_repo",
     git_link, 
+    raw_code,
+    dependencies = [],
     start_directory = "", 
     initial_cmds = ["npm install"], 
     env_file, // Make env_file optional
@@ -74,7 +127,7 @@ async function runInDocker(job) {
     
     // Increment active containers
     activeContainers++;
-    console.log(`Active containers: ${activeContainers}/${MAX_CONCURRENT_CONTAINERS}`);
+    console.log(`Active containers: ${activeContainers}/${maxConcurrentContainers}`);
     
     // Prepare environment variables
     const envArgs = Object.entries(env).map(([key, value]) => `--env ${key}=${value}`).join(' ');
@@ -90,46 +143,97 @@ async function runInDocker(job) {
         .replace(/^([A-Z]):/, (_, drive) => `/${drive.toLowerCase()}`);
     }
     
+    // Prepare for raw code execution if needed
+    if (submission_type === 'raw_code' && raw_code) {
+      // Create appropriate source file based on runtime
+      let filename;
+      switch (runtime) {
+        case 'nodejs':
+          filename = 'code.js';
+          break;
+        case 'python':
+          filename = 'code.py';
+          break;
+        case 'java':
+          filename = 'Main.java';
+          break;
+        case 'cpp':
+          filename = 'code.cpp';
+          break;
+        default:
+          filename = 'code.txt';
+      }
+      
+      // Write the raw code to a file
+      const sourceFilePath = path.join(workDir, filename);
+      await fs.writeFile(sourceFilePath, raw_code);
+      console.log(`[INFO] Created source file for job ${jobId}: ${filename}`);
+    }
+    
     // Build the Docker command
     let dockerCmd = '';
     
     if (isWindows) {
       // For Windows, use a different volume mount syntax
-      dockerCmd = `docker run --rm ` +
-        `--name e6data-${jobId} ` +
-        `--memory=${memory_limit} ` +
-        `--workdir=/app ` +
-        `-v "${workDir}:/app" ` +
-        `${envArgs} ` +
-        `${dockerImage} ` +
-        `/bin/sh -c "git clone ${git_link} . && ` +
-        `${start_directory ? `cd ${start_directory} && ` : ''}` +
-        `${initial_cmds.join(' && ')} && ` +
-        `${build_cmd}"`;
+      if (submission_type === 'raw_code') {
+        // Raw code execution
+        dockerCmd = `docker run --rm ` +
+          `--name e6data-${jobId} ` +
+          `--memory=${memory_limit} ` +
+          `--workdir=/app ` +
+          `-v "${workDir}:/app" ` +
+          `${envArgs} ` +
+          `${dockerImage} ` +
+          `/bin/sh -c "${initial_cmds.join(' && ')} && ` +
+          `${build_cmd}"`;
+      } else {
+        // Git repo execution
+        dockerCmd = `docker run --rm ` +
+          `--name e6data-${jobId} ` +
+          `--memory=${memory_limit} ` +
+          `--workdir=/app ` +
+          `-v "${workDir}:/app" ` +
+          `${envArgs} ` +
+          `${dockerImage} ` +
+          `/bin/sh -c "git clone ${git_link} . && ` +
+          `${start_directory ? `cd ${start_directory} && ` : ''}` +
+          `${initial_cmds.join(' && ')} && ` +
+          `${build_cmd}"`;
+      }
     } else {
       // For Unix systems
-      dockerCmd = `docker run --rm \
-        --name e6data-${jobId} \
-        --memory=${memory_limit} \
-        --network=host \
-        --workdir=/app \
-        -v ${workDir}:/app \
-        ${envArgs} \
-        ${dockerImage} \
-        /bin/sh -c "git clone ${git_link} . && \
-        ${start_directory ? `cd ${start_directory} && ` : ''} \
-        ${initial_cmds.join(' && ')} && \
-        ${build_cmd}"`;
+      if (submission_type === 'raw_code') {
+        // Raw code execution
+        dockerCmd = `docker run --rm \
+          --name e6data-${jobId} \
+          --memory=${memory_limit} \
+          --network=host \
+          --workdir=/app \
+          -v ${workDir}:/app \
+          ${envArgs} \
+          ${dockerImage} \
+          /bin/sh -c "${initial_cmds.join(' && ')} && \
+          ${build_cmd}"`;
+      } else {
+        // Git repo execution
+        dockerCmd = `docker run --rm \
+          --name e6data-${jobId} \
+          --memory=${memory_limit} \
+          --network=host \
+          --workdir=/app \
+          -v ${workDir}:/app \
+          ${envArgs} \
+          ${dockerImage} \
+          /bin/sh -c "git clone ${git_link} . && \
+          ${start_directory ? `cd ${start_directory} && ` : ''} \
+          ${initial_cmds.join(' && ')} && \
+          ${build_cmd}"`;
+      }
     }
     
     console.log(`[INFO] Running docker command for job ${jobId}:\n${dockerCmd}`);
     
-    // Set timeout
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Execution timed out')), timeout);
-    });
-    
-    // Execute Docker command with streaming output
+    // Execute Docker command with streaming output and proper timeout handling
     const execPromise = new Promise((resolve, reject) => {
       // Use cmd.exe on Windows and sh on Unix-like systems
       const isWindows = os.platform() === 'win32';
@@ -137,6 +241,19 @@ async function runInDocker(job) {
         ? spawn('cmd', ['/c', dockerCmd], { shell: true })
         : spawn('sh', ['-c', dockerCmd], { shell: true });
       let output = '';
+      
+      // Set timeout that will kill the process
+      const timeoutId = setTimeout(() => {
+        console.log(`[TIMEOUT] Job ${jobId} exceeded timeout of ${timeout}ms`);
+        // Kill the process
+        if (isWindows) {
+          // On Windows, we need to kill the Docker container directly
+          exec(`docker kill e6data-${jobId}`);
+        } else {
+          process.kill('SIGTERM');
+        }
+        reject(new Error(`Execution timed out after ${timeout}ms`));
+      }, timeout);
       
       process.stdout.on('data', (data) => {
         const chunk = data.toString();
@@ -167,6 +284,9 @@ async function runInDocker(job) {
       });
       
       process.on('close', (code) => {
+        // Clear the timeout since the process has completed
+        clearTimeout(timeoutId);
+        
         if (code === 0) {
           resolve({ output, exitCode: code });
         } else {
@@ -175,12 +295,14 @@ async function runInDocker(job) {
       });
       
       process.on('error', (err) => {
+        // Clear the timeout on error
+        clearTimeout(timeoutId);
         reject(err);
       });
     });
     
-    // Wait for execution or timeout
-    const result = await Promise.race([execPromise, timeoutPromise]);
+    // Wait for execution (timeout is handled within the promise)
+    const result = await execPromise;
     
     return {
       status: 'success',
@@ -208,15 +330,27 @@ async function runInDocker(job) {
     }
     
     activeContainers--;
-    console.log(`Active containers: ${activeContainers}/${MAX_CONCURRENT_CONTAINERS}`);
+    console.log(`Active containers: ${activeContainers}/${maxConcurrentContainers}`);
   }
 }
 
-// Ensure workspace directory exists
-ensureWorkspaceDir().catch(err => {
-  console.error('Failed to create workspace directory:', err);
-  process.exit(1);
-});
+// Initialize the system
+async function initialize() {
+  try {
+    // Ensure workspace directory exists
+    await ensureWorkspaceDir();
+    
+    // Calculate initial max containers
+    maxConcurrentContainers = await calculateMaxContainers();
+    console.log(`[INIT] System initialized with max ${maxConcurrentContainers} concurrent containers`);
+  } catch (err) {
+    console.error('[ERROR] Failed to initialize system:', err);
+    process.exit(1);
+  }
+}
+
+// Run initialization
+initialize();
 
 // Create a worker to process jobs
 const worker = new Worker(
@@ -248,7 +382,7 @@ const worker = new Worker(
       throw new Error(result.error || 'Job failed');
     }
   },
-  { connection }
+  { connection, concurrency: maxConcurrentContainers }
 );
 
 
