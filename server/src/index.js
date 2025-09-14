@@ -30,7 +30,7 @@ app.get("/health", (req, res) => {
   res.status(200).json({ status: "ok", message: "Server is running" });
 });
 
-const PORT = process.env.PORT || 5001; // Changed from 5000 to avoid conflicts
+const PORT = process.env.PORT || 5000; // Changed from 5000 to avoid conflicts
 const httpServer = createServer(app);
 
 // Create Socket.io server
@@ -89,13 +89,13 @@ createDatabaseIfNotExists()
     
     // Start server
     httpServer.listen(PORT, () => {
-      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`Server running on port ${PORT}`);
       console.log(`API endpoints available at:`);
-      console.log(`- http://localhost:${PORT}/api/submit`);
-      console.log(`- http://localhost:${PORT}/api/jobs`);
-      console.log(`- http://localhost:${PORT}/api/metrics/system`);
-      console.log(`- http://localhost:${PORT}/api/metrics/jobs`);
-      console.log(`- http://localhost:${PORT}/api/metrics/dashboard`);
+      console.log(`- /api/submit`);
+      console.log(`- /api/jobs`);
+      console.log(`- /api/metrics/system`);
+      console.log(`- /api/metrics/jobs`);
+      console.log(`- /api/metrics/dashboard`);
     });
   })
   .catch(err => {
