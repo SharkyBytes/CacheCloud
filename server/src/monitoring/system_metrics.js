@@ -1,6 +1,7 @@
 import os from 'os';
 import { jobQueue } from '../queue/index.js';
 import { resourceManager } from '../queue/resource_manager.js';
+import { publishSystemMetrics } from '../pubsub/redis_pubsub.js';
 import db from '../db/index.js';
 
 // Metrics collection interval in milliseconds
@@ -137,17 +138,20 @@ export async function collectMetrics() {
     }
   };
   
-  // Save metrics to database
+  // Save metrics to database and publish to Redis
   try {
-    await db.saveSystemMetrics({
+    const metricsData = {
       totalMemory: memory.total,
       freeMemory: memory.free,
       cpuUsage: cpuUsage,
       activeContainers: activeContainers,
       queuedJobs: queueStats.waiting + queueStats.delayed
-    });
+    };
+    
+    await db.saveSystemMetrics(metricsData);
+    await publishSystemMetrics(metrics);
   } catch (error) {
-    console.error('Error saving metrics to database:', error);
+    console.error('Error saving/publishing metrics:', error);
   }
   
   return metrics;
