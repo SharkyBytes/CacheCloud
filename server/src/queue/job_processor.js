@@ -3,6 +3,7 @@ import { redisConnection, QUEUE_CONFIG } from './config.js';
 import { resourceManager } from './resource_manager.js';
 import { runJobInContainer } from '../docker/index.js';
 import { queueStatusUpdate, queueLogUpdate } from './status_queue.js';
+import { publishJobStatus } from '../pubsub/redis_pubsub.js';
 import db from '../db/index.js';
 
 // Initialize the system
@@ -22,8 +23,9 @@ const worker = new Worker(
       // Save job to database
       await db.saveJob(job, 'waiting');
       
-      // Queue status update
+      // Queue status update and publish to Redis
       await queueStatusUpdate(job.id, 'waiting');
+      await publishJobStatus(job.id, 'waiting');
     } catch (dbError) {
       console.error(`[ERROR] Failed to save job to database: ${dbError.message}`);
     }
@@ -34,14 +36,16 @@ const worker = new Worker(
       // Requeue the job with a delay
       await job.moveToDelayed(Date.now() + 10000);
       
-      // Queue status update
+      // Queue status update and publish to Redis
       await queueStatusUpdate(job.id, 'delayed');
+      await publishJobStatus(job.id, 'delayed');
       
       return { status: 'delayed', message: 'Job delayed due to resource constraints' };
     }
     
     // Queue status update - job is now active
     await queueStatusUpdate(job.id, 'active');
+    await publishJobStatus(job.id, 'active');
     
     // Run the job in Docker
     const result = await runJobInContainer(
@@ -73,11 +77,13 @@ worker.on('completed', async (job, result) => {
   console.log(`Job ${job.id} has been completed`);
   
   try {
-    // Queue status update
-    await queueStatusUpdate(job.id, 'completed', {
+    // Queue status update and publish to Redis
+    const jobResult = {
       exitCode: result.exitCode || 0,
       duration: Date.now() - job.timestamp
-    });
+    };
+    await queueStatusUpdate(job.id, 'completed', jobResult);
+    await publishJobStatus(job.id, 'completed', jobResult);
   } catch (error) {
     console.error(`[ERROR] Failed to queue status update: ${error.message}`);
   }
@@ -87,14 +93,18 @@ worker.on('failed', async (job, err) => {
   console.error(`Job ${job.id} has failed with error ${err.message}`);
   
   try {
-    // Queue status update
-    await queueStatusUpdate(job.id, 'failed', {
+    // Queue status update and publish to Redis
+    const jobResult = {
       exitCode: 1,
-      duration: Date.now() - job.timestamp
-    });
+      duration: Date.now() - job.timestamp,
+      error: err.message
+    };
+    await queueStatusUpdate(job.id, 'failed', jobResult);
+    await publishJobStatus(job.id, 'failed', jobResult);
     
-    // Queue error log
+    // Queue error log and publish to Redis
     await queueLogUpdate(job.id, 'stderr', err.message);
+    await publishJobLogs(job.id, 'stderr', err.message);
   } catch (error) {
     console.error(`[ERROR] Failed to queue status update: ${error.message}`);
   }

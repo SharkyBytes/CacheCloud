@@ -4,6 +4,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { getRuntimeConfig, isWindows } from './config.js';
 import { queueLogUpdate } from '../queue/status_queue.js';
+import { publishJobLogs } from '../pubsub/redis_pubsub.js';
 
 const execPromise = promisify(exec);
 
@@ -237,11 +238,12 @@ async function executeDockerCommand(dockerCmd, jobId, timeout) {
           });
         }
         
-        // Queue log update for database
+        // Queue log update for database and publish to Redis
         try {
           await queueLogUpdate(jobId, 'stdout', trimmedChunk);
+          await publishJobLogs(jobId, 'stdout', trimmedChunk);
         } catch (error) {
-          console.error(`[ERROR] Failed to queue log update: ${error.message}`);
+          console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
         }
       });
       
@@ -260,11 +262,12 @@ async function executeDockerCommand(dockerCmd, jobId, timeout) {
           });
         }
         
-        // Queue log update for database
+        // Queue log update for database and publish to Redis
         try {
           await queueLogUpdate(jobId, 'stderr', trimmedChunk);
+          await publishJobLogs(jobId, 'stderr', trimmedChunk);
         } catch (error) {
-          console.error(`[ERROR] Failed to queue log update: ${error.message}`);
+          console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
         }
       });
     

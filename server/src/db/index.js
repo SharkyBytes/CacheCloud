@@ -98,7 +98,9 @@ export async function saveJob(job, status) {
  */
 export async function updateJobStatus(jobId, status, result = {}) {
   try {
-    const { exitCode, duration } = result;
+    // Ensure result is an object before destructuring
+    const safeResult = result || {};
+    const { exitCode, duration } = safeResult;
     
     let query = 'UPDATE jobs SET status = $1';
     const params = [status];

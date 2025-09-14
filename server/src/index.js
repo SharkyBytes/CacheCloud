@@ -9,6 +9,7 @@ import metricsRouter from './routes/metrics.js';
 import { jobWorker } from './queue/index.js';
 import { startMetricsCollection } from './monitoring/system_metrics.js';
 import { initializeDatabase } from './db/index.js';
+import { initPubSub } from './pubsub/redis_pubsub.js';
 
 const app = express();
 app.use(cors());
@@ -56,6 +57,9 @@ io.on('connection', (socket) => {
 
 // Make io available globally for job_processor.js
 global.io = io;
+
+// Initialize Redis pub/sub
+initPubSub(io);
 
 // Initialize database and start metrics collection
 initializeDatabase()
