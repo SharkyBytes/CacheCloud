@@ -20,7 +20,9 @@ const AdminPage = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    const socketInstance = io(API_BASE_URL);
+    const socketInstance = io(API_BASE_URL, {
+      path: '/socket.io'
+    });
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
