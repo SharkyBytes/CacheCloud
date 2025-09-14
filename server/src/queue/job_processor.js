@@ -4,6 +4,7 @@ import { resourceManager } from './resource_manager.js';
 import { runJobInContainer } from '../docker/index.js';
 import { queueStatusUpdate, queueLogUpdate } from './status_queue.js';
 import { publishJobStatus } from '../pubsub/redis_pubsub.js';
+import { initializeRetrySystem } from './enhanced_retries.js';
 import db from '../db/index.js';
 
 // Initialize the system
@@ -89,25 +90,12 @@ worker.on('completed', async (job, result) => {
   }
 });
 
-worker.on('failed', async (job, err) => {
-  console.error(`Job ${job.id} has failed with error ${err.message}`);
-  
-  try {
-    // Queue status update and publish to Redis
-    const jobResult = {
-      exitCode: 1,
-      duration: Date.now() - job.timestamp,
-      error: err.message
-    };
-    await queueStatusUpdate(job.id, 'failed', jobResult);
-    await publishJobStatus(job.id, 'failed', jobResult);
-    
-    // Queue error log and publish to Redis
-    await queueLogUpdate(job.id, 'stderr', err.message);
-    await publishJobLogs(job.id, 'stderr', err.message);
-  } catch (error) {
-    console.error(`[ERROR] Failed to queue status update: ${error.message}`);
-  }
+// Initialize enhanced retry system (replaces the default failed handler)
+initializeRetrySystem(worker);
+
+// Keep original error handler
+worker.on('error', err => {
+  console.error('[ERROR] Worker error:', err);
 });
 
 worker.on('error', err => {
