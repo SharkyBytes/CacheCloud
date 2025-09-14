@@ -6,7 +6,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localho
  */
 export async function fetchDashboardData() {
   try {
-    const response = await fetch(`${API_BASE_URL}/metrics/dashboard`);
+    const response = await fetch(`${API_BASE_URL}/api/metrics/dashboard`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -31,7 +31,7 @@ export async function fetchDashboardData() {
  */
 export async function fetchSystemMetrics() {
   try {
-    const response = await fetch(`${API_BASE_URL}/metrics/system`);
+    const response = await fetch(`${API_BASE_URL}/api/metrics/system`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -56,7 +56,7 @@ export async function fetchSystemMetrics() {
  */
 export async function fetchJobStatistics() {
   try {
-    const response = await fetch(`${API_BASE_URL}/metrics/jobs`);
+    const response = await fetch(`${API_BASE_URL}/api/metrics/jobs`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -81,7 +81,7 @@ export async function fetchJobStatistics() {
  */
 export async function fetchActiveJobs() {
   try {
-    const response = await fetch(`${API_BASE_URL}/jobs?status=active`);
+    const response = await fetch(`${API_BASE_URL}/api/jobs?status=active`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -107,7 +107,7 @@ export async function fetchActiveJobs() {
  */
 export async function fetchJobDetails(jobId) {
   try {
-    const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
+    const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`);
     
     if (!response.ok) {
       throw new Error(`HTTP error! Status: ${response.status}`);
@@ -127,13 +127,39 @@ export async function fetchJobDetails(jobId) {
 }
 
 /**
+ * Fetch job logs
+ * @param {string} jobId - Job ID
+ * @returns {Promise<Array>} Job logs
+ */
+export async function fetchJobLogs(jobId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}/logs`);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch job logs');
+    }
+    
+    return data.logs || [];
+  } catch (error) {
+    console.error(`Error fetching logs for job ${jobId}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Submit a job
  * @param {Object} jobData - Job data
  * @returns {Promise<Object>} Job submission response
  */
 export async function submitJob(jobData) {
   try {
-    const response = await fetch(`${API_BASE_URL}/submit`, {
+    const response = await fetch(`${API_BASE_URL}/api/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

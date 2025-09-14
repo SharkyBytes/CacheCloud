@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { fetchJobDetails, API_BASE_URL } from '../services/api';
+import { fetchJobDetails, fetchJobLogs, API_BASE_URL } from '../services/api';
 
 const JobMonitor = ({ jobId }) => {
   const [job, setJob] = useState(null);
@@ -15,7 +15,7 @@ const JobMonitor = ({ jobId }) => {
   const currentJobIdRef = useRef(null);
   const abortControllerRef = useRef(null);
 
-  // Fetch job details with proper cleanup and duplicate prevention
+  // Fetch job details and logs with proper cleanup and duplicate prevention
   const loadJobDetails = useCallback(async (targetJobId) => {
     // Prevent duplicate requests for the same job
     if (isLoadingRef.current && currentJobIdRef.current === targetJobId) {
@@ -38,18 +38,24 @@ const JobMonitor = ({ jobId }) => {
       setError(null);
 
       console.log('Fetching job details for:', targetJobId);
-      const data = await fetchJobDetails(targetJobId, {
-        signal: abortControllerRef.current.signal
-      });
+      
+      // Fetch both job details and logs in parallel
+      const [jobData, logsData] = await Promise.all([
+        fetchJobDetails(targetJobId),
+        fetchJobLogs(targetJobId).catch(err => {
+          console.warn(`Error fetching logs for job ${targetJobId}:`, err);
+          return [];
+        })
+      ]);
 
       // Only update state if this is still the current job
       if (currentJobIdRef.current === targetJobId && !abortControllerRef.current.signal.aborted) {
-        setJob(data.job);
-        setLogs(data.logs || []);
+        setJob(jobData);
+        setLogs(Array.isArray(logsData) ? logsData : []);
       }
     } catch (err) {
       // Only handle error if request wasn't aborted and it's still the current job
-      if (!err.name === 'AbortError' && currentJobIdRef.current === targetJobId) {
+      if (err.name !== 'AbortError' && currentJobIdRef.current === targetJobId) {
         console.error(`Error fetching job ${targetJobId} details:`, err);
         setError(`Failed to load job details: ${err.message}`);
       }
@@ -78,7 +84,10 @@ const JobMonitor = ({ jobId }) => {
       setError(null);
     }
 
-    const socketInstance = io(API_BASE_URL);
+    // Make sure we're connecting to the WebSocket endpoint correctly
+    const socketInstance = io(API_BASE_URL, {
+      path: '/socket.io'
+    });
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
@@ -217,7 +226,12 @@ const JobMonitor = ({ jobId }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleString();
+    try {
+      return new Date(dateString).toLocaleString();
+    } catch (err) {
+      console.warn('Error formatting date:', err);
+      return dateString || 'N/A';
+    }
   };
 
   const getStatusColor = (status) => {
@@ -231,15 +245,33 @@ const JobMonitor = ({ jobId }) => {
     }
   };
 
+  // Extract values from job data with fallbacks
+  const getJobValue = (path, defaultValue = 'N/A') => {
+    try {
+      const parts = path.split('.');
+      let value = job;
+      
+      for (const part of parts) {
+        if (value === null || value === undefined) return defaultValue;
+        value = value[part];
+      }
+      
+      return value !== null && value !== undefined ? value : defaultValue;
+    } catch (err) {
+      console.warn(`Error getting job value for ${path}:`, err);
+      return defaultValue;
+    }
+  };
+
   const jobDetails = [
-    { label: 'Type', value: job.submission_type, icon: '📋' },
-    { label: 'Runtime', value: job.runtime, icon: '⚙️' },
-    { label: 'Memory Limit', value: job.memory_limit, icon: '💾' },
-    { label: 'Submitted', value: formatDate(job.submitted_at), icon: '📤' },
-    { label: 'Started', value: formatDate(job.start_time), icon: '▶️' },
-    { label: 'Completed', value: formatDate(job.end_time), icon: '✅' },
-    { label: 'Duration', value: formatDuration(job.duration), icon: '⏱️' },
-    { label: 'Exit Code', value: job.exitCode !== undefined ? job.exitCode : 'N/A', icon: '🔢' }
+    { label: 'Type', value: getJobValue('data.submission_type'), icon: '📋' },
+    { label: 'Runtime', value: getJobValue('data.runtime'), icon: '⚙️' },
+    { label: 'Memory Limit', value: getJobValue('data.memory_limit'), icon: '💾' },
+    { label: 'Submitted', value: formatDate(getJobValue('data.submitted_at') || getJobValue('createdAt')), icon: '📤' },
+    { label: 'Started', value: formatDate(getJobValue('processedAt')), icon: '▶️' },
+    { label: 'Completed', value: formatDate(getJobValue('finishedAt')), icon: '✅' },
+    { label: 'Duration', value: formatDuration(getJobValue('duration')), icon: '⏱️' },
+    { label: 'Exit Code', value: getJobValue('result.exitCode', 'N/A'), icon: '🔢' }
   ];
 
   return (
