@@ -14,6 +14,12 @@ const CodeIcon = () => (
   </svg>
 );
 
+const DockerIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 12h14M5 12a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v4a2 2 0 01-2 2M5 12a2 2 0 00-2 2v4a2 2 0 002 2h14a2 2 0 002-2v-4a2 2 0 00-2-2m-2-4h.01M17 16h.01" />
+  </svg>
+);
+
 const CheckIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -108,6 +114,7 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
   const [formData, setFormData] = useState({
     git_link: '',
     raw_code: '',
+    docker_image: '',
     runtime: 'nodejs',
     memory_limit: '512MB',
     timeout: 180,
@@ -138,19 +145,22 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
     try {
       const submissionData = {
         submission_type: formType,
-        runtime: formData.runtime,
         memory_limit: formData.memory_limit,
         timeout: parseInt(formData.timeout) * 1000,
       };
 
       if (formType === 'git_repo') {
         submissionData.git_link = formData.git_link;
-      } else {
+        submissionData.runtime = formData.runtime;
+      } else if (formType === 'raw_code') {
         submissionData.raw_code = formData.raw_code;
+        submissionData.runtime = formData.runtime;
         submissionData.dependencies = formData.dependencies
           .split(',')
           .map(dep => dep.trim())
           .filter(dep => dep);
+      } else if (formType === 'docker_image') {
+        submissionData.docker_image = formData.docker_image;
       }
 
       if (formData.start_directory) {
@@ -185,6 +195,7 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
   const formTypes = [
     { id: 'git_repo', label: 'Git Repository', icon: <GitIcon /> },
     { id: 'raw_code', label: 'Raw Code', icon: <CodeIcon /> },
+    { id: 'docker_image', label: 'Docker Image', icon: <DockerIcon /> },
   ];
 
   return (
@@ -246,7 +257,7 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Main Form Fields */}
           <div className="bg-gradient-to-br from-slate-50/50 to-white/50 rounded-xl p-6 border border-slate-200/50 backdrop-blur-sm">
-            {formType === 'git_repo' ? (
+            {formType === 'git_repo' && (
               <FormInput
                 label="Git Repository URL"
                 name="git_link"
@@ -255,7 +266,9 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
                 placeholder="https://github.com/username/repository"
                 required
               />
-            ) : (
+            )}
+            
+            {formType === 'raw_code' && (
               <div className="space-y-6">
                 <FormTextarea
                   label="Code"
@@ -276,23 +289,67 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
                 />
               </div>
             )}
+            
+            {formType === 'docker_image' && (
+              <div className="space-y-6">
+                <FormInput
+                  label="Docker Image"
+                  name="docker_image"
+                  value={formData.docker_image}
+                  onChange={handleChange}
+                  placeholder="tensorflow/tensorflow:latest-gpu"
+                  helpText="Docker image to use for execution"
+                  required
+                />
+              </div>
+            )}
           </div>
           
           {/* Configuration Fields */}
           <div className="bg-gradient-to-br from-slate-50/50 to-white/50 rounded-xl p-6 border border-slate-200/50 backdrop-blur-sm">
             <h3 className="text-lg font-semibold text-slate-800 mb-4">Configuration</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FormSelect
-                label="Runtime"
-                name="runtime"
-                value={formData.runtime}
-                onChange={handleChange}
-                required
-              >
-                <option value="nodejs">Node.js</option>
-                <option value="python">Python</option>
-                <option value="java">Java</option>
-              </FormSelect>
+              {formType !== 'docker_image' && (
+                <FormSelect
+                  label="Runtime"
+                  name="runtime"
+                  value={formData.runtime}
+                  onChange={handleChange}
+                  required
+                >
+                  <optgroup label="JavaScript/Node.js">
+                    <option value="nodejs">Node.js 18 (default)</option>
+                    <option value="nodejs-16">Node.js 16 LTS</option>
+                    <option value="nodejs-14">Node.js 14 LTS</option>
+                    <option value="typescript">TypeScript</option>
+                    <option value="deno">Deno</option>
+                  </optgroup>
+                  
+                  <optgroup label="Python">
+                    <option value="python">Python 3.10</option>
+                    <option value="python-3.9">Python 3.9</option>
+                    <option value="python-3.8">Python 3.8</option>
+                    <option value="python-django">Python + Django</option>
+                    <option value="python-flask">Python + Flask</option>
+                  </optgroup>
+                  
+                  <optgroup label="Java">
+                    <option value="java">Java 17</option>
+                    <option value="java-11">Java 11</option>
+                    <option value="java-spring">Java + Spring</option>
+                  </optgroup>
+                  
+                  <optgroup label="Other Languages">
+                    <option value="cpp">C++</option>
+                    <option value="c">C</option>
+                    <option value="go">Go</option>
+                    <option value="rust">Rust</option>
+                    <option value="ruby">Ruby</option>
+                    <option value="php">PHP</option>
+                    <option value="dotnet">.NET (C#)</option>
+                  </optgroup>
+                </FormSelect>
+              )}
               
               <FormSelect
                 label="Memory Limit"
@@ -306,6 +363,8 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
                 <option value="512MB">512 MB</option>
                 <option value="1GB">1 GB</option>
                 <option value="2GB">2 GB</option>
+                <option value="4GB">4 GB</option>
+                <option value="8GB">8 GB</option>
               </FormSelect>
               
               <FormInput
@@ -315,7 +374,7 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
                 value={formData.timeout}
                 onChange={handleChange}
                 min="1"
-                max="180"
+                max="300"
                 required
               />
             </div>
