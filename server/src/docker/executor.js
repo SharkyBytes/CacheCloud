@@ -3,6 +3,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { getRuntimeConfig, isWindows } from './config.js';
+import { queueLogUpdate } from '../queue/status_queue.js';
 
 const execPromise = promisify(exec);
 
@@ -221,33 +222,51 @@ async function executeDockerCommand(dockerCmd, jobId, timeout) {
       reject(new Error(`Execution timed out after ${timeout}ms`));
     }, timeout);
     
-    process.stdout.on('data', (data) => {
-      const chunk = data.toString();
-      output += chunk;
-      console.log(`[Job ${jobId}] ${chunk.trim()}`);
-      // Emit the output to WebSocket
-      if (global.io) {
-        global.io.to(`job-${jobId}`).emit('log', {
-          jobId,
-          type: 'stdout',
-          data: chunk.trim()
-        });
-      }
-    });
-    
-    process.stderr.on('data', (data) => {
-      const chunk = data.toString();
-      output += chunk;
-      console.error(`[Job ${jobId}] ${chunk.trim()}`);
-      // Emit the error to WebSocket
-      if (global.io) {
-        global.io.to(`job-${jobId}`).emit('log', {
-          jobId,
-          type: 'stderr',
-          data: chunk.trim()
-        });
-      }
-    });
+      process.stdout.on('data', async (data) => {
+        const chunk = data.toString();
+        output += chunk;
+        const trimmedChunk = chunk.trim();
+        console.log(`[Job ${jobId}] ${trimmedChunk}`);
+        
+        // Emit the output to WebSocket
+        if (global.io) {
+          global.io.to(`job-${jobId}`).emit('log', {
+            jobId,
+            type: 'stdout',
+            data: trimmedChunk
+          });
+        }
+        
+        // Queue log update for database
+        try {
+          await queueLogUpdate(jobId, 'stdout', trimmedChunk);
+        } catch (error) {
+          console.error(`[ERROR] Failed to queue log update: ${error.message}`);
+        }
+      });
+      
+      process.stderr.on('data', async (data) => {
+        const chunk = data.toString();
+        output += chunk;
+        const trimmedChunk = chunk.trim();
+        console.error(`[Job ${jobId}] ${trimmedChunk}`);
+        
+        // Emit the error to WebSocket
+        if (global.io) {
+          global.io.to(`job-${jobId}`).emit('log', {
+            jobId,
+            type: 'stderr',
+            data: trimmedChunk
+          });
+        }
+        
+        // Queue log update for database
+        try {
+          await queueLogUpdate(jobId, 'stderr', trimmedChunk);
+        } catch (error) {
+          console.error(`[ERROR] Failed to queue log update: ${error.message}`);
+        }
+      });
     
     process.on('close', (code) => {
       // Clear the timeout since the process has completed
