@@ -3,7 +3,7 @@ import { io } from 'socket.io-client';
 import SystemMetrics from './dashboard/SystemMetrics';
 import JobStatistics from './dashboard/JobStatistics';
 import ActiveJobs from './dashboard/ActiveJobs';
-import { fetchDashboardData } from '../services/api';
+import { fetchDashboardData, API_BASE_URL } from '../services/api';
 
 // Modern Loading Component
 const LoadingSpinner = () => (
@@ -55,7 +55,7 @@ const Dashboard = () => {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
-    const socketInstance = io('http://localhost:5000');
+    const socketInstance = io(API_BASE_URL);
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {

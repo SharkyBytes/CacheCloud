@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from '../../services/api';
 
 const SubmissionForm = (props) => {
   const [formData, setFormData] = useState({
@@ -81,7 +82,7 @@ const SubmissionForm = (props) => {
     
     try {
       // Use fetch instead of axios since we haven't installed axios yet
-      const response = await fetch('http://localhost:5000/api/submit', {
+      const response = await fetch(`${API_BASE_URL}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

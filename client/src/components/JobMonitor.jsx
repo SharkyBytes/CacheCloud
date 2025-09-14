@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { io } from 'socket.io-client';
-import { fetchJobDetails } from '../services/api';
+import { fetchJobDetails, API_BASE_URL } from '../services/api';
 
 const JobMonitor = ({ jobId }) => {
   const [job, setJob] = useState(null);
@@ -78,7 +78,7 @@ const JobMonitor = ({ jobId }) => {
       setError(null);
     }
 
-    const socketInstance = io('http://localhost:5000');
+    const socketInstance = io(API_BASE_URL);
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {

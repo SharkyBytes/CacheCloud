@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { API_BASE_URL } from '../../services/api';
 
 const JobStatus = ({ jobId }) => {
   const [job, setJob] = useState(null);
@@ -12,7 +13,7 @@ const JobStatus = ({ jobId }) => {
   useEffect(() => {
     const fetchJobStatus = async () => {
       try {
-        const response = await fetch(`http://localhost:5000/api/jobs/${jobId}`);
+        const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
         const data = await response.json();
         
         if (!response.ok) {
@@ -41,7 +42,7 @@ const JobStatus = ({ jobId }) => {
     // Since socket.io-client might not be installed yet, we'll use a mock implementation
     // In a real implementation, you would use:
     // import io from 'socket.io-client';
-    // socketRef.current = io('http://localhost:5000');
+    // socketRef.current = io(API_BASE_URL);
     
     console.log('Would connect to WebSocket here for job:', jobId);
     
