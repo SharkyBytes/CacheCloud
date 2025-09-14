@@ -5,7 +5,10 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';
 import submitRouter from './routes/submit.js';
 import jobsRouter from './routes/jobs.js';
-import { jobWorker } from './queue/index.js'; 
+import metricsRouter from './routes/metrics.js';
+import { jobWorker } from './queue/index.js';
+import { startMetricsCollection } from './monitoring/system_metrics.js';
+import { initializeDatabase } from './db/index.js';
 
 const app = express();
 app.use(cors());
@@ -14,6 +17,7 @@ app.use(express.json());
 // API routes
 app.use("/api/submit", submitRouter);
 app.use("/api/jobs", jobsRouter);
+app.use("/api/metrics", metricsRouter);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -53,5 +57,27 @@ io.on('connection', (socket) => {
 // Make io available globally for job_processor.js
 global.io = io;
 
-httpServer.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// Initialize database and start metrics collection
+initializeDatabase()
+  .then(() => {
+    console.log('Database initialized successfully');
+    
+    // Start metrics collection
+    startMetricsCollection();
+    
+    // Start server
+    httpServer.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+      console.log(`API endpoints available at:`);
+      console.log(`- http://localhost:${PORT}/api/submit`);
+      console.log(`- http://localhost:${PORT}/api/jobs`);
+      console.log(`- http://localhost:${PORT}/api/metrics/system`);
+      console.log(`- http://localhost:${PORT}/api/metrics/jobs`);
+      console.log(`- http://localhost:${PORT}/api/metrics/dashboard`);
+    });
+  })
+  .catch(err => {
+    console.error('Failed to initialize database:', err);
+    process.exit(1);
+  });
 
