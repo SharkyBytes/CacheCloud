@@ -21,9 +21,9 @@ const handleSubmit = async (req, res) => {
         const env_file = data.env_file; // Optional, no default
         const build_cmd = data.build_cmd || "node index.js";
         const memory_limit = data.memory_limit || "512MB";
-        // Parse timeout with a maximum of 1 minute (60000ms)
+        // Parse timeout with a maximum of 5 minutes (300000ms)
         let timeout = parseInt(data.timeout) || 180000;
-        const MAX_TIMEOUT =180000; // 300 second maximum
+        const MAX_TIMEOUT = 300000; // 300 second maximum
         
         // Validate timeout
         if (timeout > MAX_TIMEOUT) {
@@ -32,7 +32,10 @@ const handleSubmit = async (req, res) => {
                 error: `Timeout cannot exceed ${MAX_TIMEOUT/1000} seconds `
             });
         }
+        
+        // Get runtime and Docker image options
         const runtime = data.runtime || "nodejs";
+        const custom_docker_image = data.docker_image || null;
         const env = data.env || {};
         
         // Determine submission type and validate required fields
@@ -47,8 +50,8 @@ const handleSubmit = async (req, res) => {
         }
         
         // Validate runtime for raw code submissions
-        if (isRawCode) {
-            const supportedRuntimes = ['nodejs', 'python', 'java', 'cpp'];
+        if (isRawCode && !custom_docker_image) {
+            const supportedRuntimes = Object.keys(QUEUE_CONFIG.runtimes);
             if (!supportedRuntimes.includes(runtime)) {
                 return res.status(400).json({
                     success: false,
@@ -60,9 +63,17 @@ const handleSubmit = async (req, res) => {
         // Generate a unique job ID (ensure it's a string with a letter prefix)
         const jobId = 'job_' + uuidv4().substring(0, 8);
 
+        // Determine submission type
+        let submission_type = 'git_repo';
+        if (isRawCode) {
+            submission_type = 'raw_code';
+        } else if (custom_docker_image) {
+            submission_type = 'custom_image';
+        }
+        
         // Create job payload
         const jobPayload = {
-            submission_type: isRawCode ? 'raw_code' : 'git_repo',
+            submission_type,
             start_directory,
             memory_limit,
             timeout,
@@ -71,8 +82,14 @@ const handleSubmit = async (req, res) => {
             env
         };
         
+        // Add custom Docker image if provided
+        if (custom_docker_image) {
+            jobPayload.docker_image = custom_docker_image;
+            console.log(`[INFO] Using custom Docker image: ${custom_docker_image}`);
+        }
+        
         // Add submission-specific fields
-        if (isRawCode) {
+        if (submission_type === 'raw_code') {
             jobPayload.raw_code = raw_code;
             jobPayload.dependencies = dependencies;
             
