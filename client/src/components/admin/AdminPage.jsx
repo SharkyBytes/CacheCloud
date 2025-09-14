@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import { fetchSystemMetrics, fetchJobStatistics } from '../../services/api';
+import { fetchSystemMetrics, fetchJobStatistics, API_BASE_URL } from '../../services/api';
 import SystemOverview from './SystemOverview';
 import UsageCharts from './UsageCharts';
 import JobStatistics from './JobStatistics';
@@ -20,7 +20,7 @@ const AdminPage = () => {
 
   // Initialize socket connection
   useEffect(() => {
-    const socketInstance = io('http://localhost:5000');
+    const socketInstance = io(API_BASE_URL);
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
