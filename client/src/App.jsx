@@ -1,38 +1,63 @@
 import { useState } from 'react';
-import SubmissionForm from './components/submission_form';
-import JobStatus from './components/job_status';
+import Dashboard from './components/Dashboard';
+import JobsPage from './components/JobsPage';
+import AdminPage from './components/AdminPage';
 import './App.css';
 
 export default function App() {
-  const [currentJobId, setCurrentJobId] = useState(null);
+  const [currentPage, setCurrentPage] = useState('jobs');
   
-  // Simple routing based on state
+  // Navigation handler
+  const handleNavigation = (page) => {
+    setCurrentPage(page);
+  };
+  
+  // Render content based on current page
   const renderContent = () => {
-    if (currentJobId) {
-      return (
-        <>
-          <JobStatus jobId={currentJobId} />
-          <button 
-            className="back-button"
-            onClick={() => setCurrentJobId(null)}
-          >
-            Back to Submission Form
-          </button>
-        </>
-      );
+    switch (currentPage) {
+      case 'dashboard':
+        return <Dashboard />;
+      case 'jobs':
+        return <JobsPage />;
+      case 'admin':
+        return <AdminPage />;
+      default:
+        return <JobsPage />;
     }
-    
-    return (
-      <SubmissionForm 
-        onJobSubmitted={(jobId) => setCurrentJobId(jobId)} 
-      />
-    );
   };
   
   return (
     <div className="App">
       <header className="app-header">
         <h1>E6Data Execution Platform</h1>
+        <nav className="main-nav">
+          <ul>
+            <li>
+              <button 
+                className={currentPage === 'jobs' ? 'active' : ''}
+                onClick={() => handleNavigation('jobs')}
+              >
+                Jobs
+              </button>
+            </li>
+            <li>
+              <button 
+                className={currentPage === 'dashboard' ? 'active' : ''}
+                onClick={() => handleNavigation('dashboard')}
+              >
+                Dashboard
+              </button>
+            </li>
+            <li>
+              <button 
+                className={currentPage === 'admin' ? 'active' : ''}
+                onClick={() => handleNavigation('admin')}
+              >
+                Admin
+              </button>
+            </li>
+          </ul>
+        </nav>
       </header>
       
       <main className="app-content">
