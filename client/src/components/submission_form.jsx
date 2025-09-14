@@ -82,7 +82,7 @@ const SubmissionForm = (props) => {
     
     try {
       // Use fetch instead of axios since we haven't installed axios yet
-      const response = await fetch(`${API_BASE_URL}/submit`, {
+      const response = await fetch(`${API_BASE_URL}/api/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -13,7 +13,7 @@ const JobStatus = ({ jobId }) => {
   useEffect(() => {
     const fetchJobStatus = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/jobs/${jobId}`);
+        const response = await fetch(`${API_BASE_URL}/api/jobs/${jobId}`);
         const data = await response.json();
         
         if (!response.ok) {
