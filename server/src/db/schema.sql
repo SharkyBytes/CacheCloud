@@ -54,7 +54,17 @@ END;
 $$ LANGUAGE 'plpgsql';
 
 -- Create trigger to update updated_at timestamp
-CREATE TRIGGER update_jobs_updated_at
-BEFORE UPDATE ON jobs
-FOR EACH ROW
-EXECUTE FUNCTION update_updated_at_column();
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgname = 'update_jobs_updated_at'
+    ) THEN
+        CREATE TRIGGER update_jobs_updated_at
+        BEFORE UPDATE ON jobs
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END;
+$$;

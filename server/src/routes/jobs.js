@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { jobQueue } from "../queue/index.js";
+import { calculateJobCost, calculateCostSavings } from '../utils/cost_calculator.js';
 
 const router = Router();
 
@@ -19,6 +20,15 @@ router.get("/:jobId", async (req, res) => {
     const state = await job.getState();
     const result = job.returnvalue;
     
+    // Add cost calculation for completed or failed jobs
+    let costInfo = null;
+    if (state === 'completed' || state === 'failed') {
+      costInfo = {
+        cost: calculateJobCost(job),
+        savings: calculateCostSavings(job)
+      };
+    }
+    
     res.status(200).json({
       success: true,
       jobId: job.id,
@@ -28,7 +38,8 @@ router.get("/:jobId", async (req, res) => {
       progress: job.progress || 0,
       createdAt: job.timestamp,
       processedAt: job.processedOn,
-      finishedAt: job.finishedOn
+      finishedAt: job.finishedOn,
+      costInfo: costInfo
     });
   } catch (err) {
     console.error("[ERROR] Failed to get job status:", err);
