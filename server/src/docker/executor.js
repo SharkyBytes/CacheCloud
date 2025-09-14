@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import { getRuntimeConfig, isWindows } from './config.js';
-import { queueLogUpdate } from '../queue/status_queue.js';
+import { queueLogUpdate, saveJobLogsToDatabase } from '../queue/status_queue.js';
 import { publishJobLogs } from '../pubsub/redis_pubsub.js';
 
 const execPromise = promisify(exec);
@@ -28,6 +28,7 @@ export async function runJobInContainer(job, workspaceDir, resourceManager) {
     memory_limit = "512MB",
     timeout = 300000,
     runtime = "nodejs",
+    docker_image = null,
     env = {}
   } = job.data;
   
@@ -39,9 +40,22 @@ export async function runJobInContainer(job, workspaceDir, resourceManager) {
     await fs.mkdir(workDir, { recursive: true });
     console.log(`Created workspace for job ${jobId} at ${workDir}`);
     
-    // Get runtime configuration
-    const runtimeConfig = getRuntimeConfig(runtime);
-    const dockerImage = runtimeConfig.image;
+    // Get runtime configuration or use custom Docker image
+    let dockerImage;
+    let runtimeConfig;
+    
+    if (submission_type === 'custom_image' && docker_image) {
+      console.log(`[DOCKER] Using custom Docker image: ${docker_image}`);
+      dockerImage = docker_image;
+      runtimeConfig = {
+        ...DOCKER_CONFIG.runtimes.custom,
+        image: docker_image
+      };
+    } else {
+      runtimeConfig = getRuntimeConfig(runtime);
+      dockerImage = runtimeConfig.image;
+      console.log(`[DOCKER] Using runtime ${runtime} with image: ${dockerImage}`);
+    }
     
     // Increment active containers
     resourceManager.incrementContainers();
@@ -238,9 +252,10 @@ async function executeDockerCommand(dockerCmd, jobId, timeout) {
           });
         }
         
-        // Queue log update for database and publish to Redis
+        // Only publish to Redis, don't save to DB yet
         try {
-          await queueLogUpdate(jobId, 'stdout', trimmedChunk);
+          // Store in memory only, don't save to DB
+          await queueLogUpdate(jobId, 'stdout', trimmedChunk, false);
           await publishJobLogs(jobId, 'stdout', trimmedChunk);
         } catch (error) {
           console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
@@ -262,18 +277,27 @@ async function executeDockerCommand(dockerCmd, jobId, timeout) {
           });
         }
         
-        // Queue log update for database and publish to Redis
+        // Only publish to Redis, don't save to DB yet
         try {
-          await queueLogUpdate(jobId, 'stderr', trimmedChunk);
+          // Store in memory only, don't save to DB
+          await queueLogUpdate(jobId, 'stderr', trimmedChunk, false);
           await publishJobLogs(jobId, 'stderr', trimmedChunk);
         } catch (error) {
           console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
         }
       });
     
-    process.on('close', (code) => {
+    process.on('close', async (code) => {
       // Clear the timeout since the process has completed
       clearTimeout(timeoutId);
+      
+      // Save all accumulated logs to database now that the job is complete
+      try {
+        console.log(`[DB] Saving all logs for job ${jobId} to database now that execution is complete`);
+        await saveJobLogsToDatabase(jobId);
+      } catch (error) {
+        console.error(`[ERROR] Failed to save logs to database: ${error.message}`);
+      }
       
       if (code === 0) {
         resolve({ output, exitCode: code });
