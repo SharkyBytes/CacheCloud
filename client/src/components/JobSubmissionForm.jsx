@@ -1,8 +1,110 @@
 import { useState } from 'react';
 import { submitJob } from '../services/api';
 
+// Modern SVG Icons
+const GitIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+  </svg>
+);
+
+const CodeIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+  </svg>
+);
+
+const CheckIcon = () => (
+  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+  </svg>
+);
+
+const SpinnerIcon = () => (
+  <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
+    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+  </svg>
+);
+
+// Modern Form Input Component
+const FormInput = ({ label, error, helpText, required, className = "", ...props }) => (
+  <div className="space-y-2">
+    <label className="block text-sm font-semibold text-slate-700">
+      {label} {required && <span className="text-rose-500">*</span>}
+    </label>
+    <input
+      className={`w-full px-4 py-3 rounded-xl border-0 shadow-sm ring-1 ring-inset transition-all duration-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm ${
+        error
+          ? 'ring-rose-300 focus:ring-rose-500 bg-rose-50'
+          : 'ring-slate-300 focus:ring-indigo-600 bg-white hover:ring-slate-400'
+      } ${className}`}
+      {...props}
+    />
+    {error && (
+      <p className="text-sm text-rose-600 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </p>
+    )}
+    {helpText && !error && <p className="text-xs text-slate-500">{helpText}</p>}
+  </div>
+);
+
+const FormSelect = ({ label, error, required, children, ...props }) => (
+  <div className="space-y-2">
+    <label className="block text-sm font-semibold text-slate-700">
+      {label} {required && <span className="text-rose-500">*</span>}
+    </label>
+    <select
+      className={`w-full px-4 py-3 rounded-xl border-0 shadow-sm ring-1 ring-inset transition-all duration-200 focus:ring-2 focus:ring-inset sm:text-sm ${
+        error
+          ? 'ring-rose-300 focus:ring-rose-500 bg-rose-50'
+          : 'ring-slate-300 focus:ring-indigo-600 bg-white hover:ring-slate-400'
+      }`}
+      {...props}
+    >
+      {children}
+    </select>
+    {error && (
+      <p className="text-sm text-rose-600 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </p>
+    )}
+  </div>
+);
+
+const FormTextarea = ({ label, error, required, ...props }) => (
+  <div className="space-y-2">
+    <label className="block text-sm font-semibold text-slate-700">
+      {label} {required && <span className="text-rose-500">*</span>}
+    </label>
+    <textarea
+      className={`w-full px-4 py-3 rounded-xl border-0 shadow-sm ring-1 ring-inset transition-all duration-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset sm:text-sm font-mono ${
+        error
+          ? 'ring-rose-300 focus:ring-rose-500 bg-rose-50'
+          : 'ring-slate-300 focus:ring-indigo-600 bg-slate-50 hover:ring-slate-400'
+      }`}
+      {...props}
+    />
+    {error && (
+      <p className="text-sm text-rose-600 flex items-center">
+        <svg className="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+        </svg>
+        {error}
+      </p>
+    )}
+  </div>
+);
+
 const JobSubmissionForm = ({ onJobSubmitted }) => {
-  const [formType, setFormType] = useState('git_repo'); // git_repo or raw_code
+  const [formType, setFormType] = useState('git_repo');
   const [formData, setFormData] = useState({
     git_link: '',
     raw_code: '',
@@ -17,8 +119,8 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(null);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Handle form input changes
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prevData => ({
@@ -27,7 +129,6 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
     }));
   };
 
-  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -35,15 +136,13 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
     setSuccess(null);
 
     try {
-      // Prepare submission data
       const submissionData = {
         submission_type: formType,
         runtime: formData.runtime,
         memory_limit: formData.memory_limit,
-        timeout: parseInt(formData.timeout) * 1000, // Convert to milliseconds
+        timeout: parseInt(formData.timeout) * 1000,
       };
 
-      // Add type-specific fields
       if (formType === 'git_repo') {
         submissionData.git_link = formData.git_link;
       } else {
@@ -54,7 +153,6 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
           .filter(dep => dep);
       }
 
-      // Add optional fields if provided
       if (formData.start_directory) {
         submissionData.start_directory = formData.start_directory;
       }
@@ -71,12 +169,9 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
         }
       }
 
-      // Submit the job
       const result = await submitJob(submissionData);
-      
       setSuccess(`Job submitted successfully! Job ID: ${result.jobId}`);
       
-      // Call the parent component's callback
       if (onJobSubmitted) {
         onJobSubmitted(result.jobId);
       }
@@ -87,171 +182,226 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
     }
   };
 
+  const formTypes = [
+    { id: 'git_repo', label: 'Git Repository', icon: <GitIcon /> },
+    { id: 'raw_code', label: 'Raw Code', icon: <CodeIcon /> },
+  ];
+
   return (
-    <div className="job-submission-form">
-      <h2>Submit New Job</h2>
-      
-      <div className="form-type-selector">
-        <button 
-          className={formType === 'git_repo' ? 'active' : ''} 
-          onClick={() => setFormType('git_repo')}
-        >
-          Git Repository
-        </button>
-        <button 
-          className={formType === 'raw_code' ? 'active' : ''} 
-          onClick={() => setFormType('raw_code')}
-        >
-          Raw Code
-        </button>
-      </div>
-      
-      {error && <div className="error-message">{error}</div>}
-      {success && <div className="success-message">{success}</div>}
-      
-      <form onSubmit={handleSubmit}>
-        {/* Git Repository or Raw Code Input */}
-        {formType === 'git_repo' ? (
-          <div className="form-group">
-            <label htmlFor="git_link">Git Repository URL</label>
-            <input
-              type="text"
-              id="git_link"
-              name="git_link"
-              value={formData.git_link}
-              onChange={handleChange}
-              placeholder="https://github.com/username/repository"
-              required
-            />
+    <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-white/20 overflow-hidden">
+      <div className="p-8">
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl mb-4 shadow-lg">
+            <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
           </div>
-        ) : (
-          <>
-            <div className="form-group">
-              <label htmlFor="raw_code">Code</label>
-              <textarea
-                id="raw_code"
-                name="raw_code"
-                value={formData.raw_code}
+          <h2 className="text-2xl font-bold text-slate-800 mb-2">Submit New Job</h2>
+          <p className="text-slate-600">Choose your submission method and configure your job</p>
+        </div>
+        
+        {/* Form Type Selector */}
+        <div className="mb-8">
+          <div className="flex w-full bg-slate-100/50 p-2 rounded-xl backdrop-blur-sm border border-slate-200/50">
+            {formTypes.map(type => (
+              <button
+                key={type.id}
+                type="button"
+                onClick={() => setFormType(type.id)}
+                className={`flex-1 flex items-center justify-center text-sm font-semibold py-3 px-4 rounded-lg transition-all duration-300 transform ${
+                  formType === type.id
+                    ? 'bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg scale-105 shadow-indigo-500/25'
+                    : 'text-slate-600 hover:bg-white/60 hover:text-slate-800 hover:scale-102'
+                }`}
+              >
+                <div className="mr-2">{type.icon}</div>
+                {type.label}
+              </button>
+            ))}
+          </div>
+        </div>
+        
+        {/* Status Messages */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
+            <div className="flex items-center">
+              <svg className="w-5 h-5 text-red-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span className="text-red-800 font-medium">{error}</span>
+            </div>
+          </div>
+        )}
+        
+        {success && (
+          <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-xl">
+            <div className="flex items-center">
+              <CheckIcon />
+              <span className="text-emerald-800 font-medium ml-2">{success}</span>
+            </div>
+          </div>
+        )}
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Main Form Fields */}
+          <div className="bg-gradient-to-br from-slate-50/50 to-white/50 rounded-xl p-6 border border-slate-200/50 backdrop-blur-sm">
+            {formType === 'git_repo' ? (
+              <FormInput
+                label="Git Repository URL"
+                name="git_link"
+                value={formData.git_link}
                 onChange={handleChange}
-                placeholder="Paste your code here..."
-                rows="10"
+                placeholder="https://github.com/username/repository"
+                required
+              />
+            ) : (
+              <div className="space-y-6">
+                <FormTextarea
+                  label="Code"
+                  name="raw_code"
+                  value={formData.raw_code}
+                  onChange={handleChange}
+                  placeholder="Paste your code here..."
+                  rows="12"
+                  required
+                />
+                <FormInput
+                  label="Dependencies"
+                  name="dependencies"
+                  value={formData.dependencies}
+                  onChange={handleChange}
+                  placeholder="express, axios, dotenv"
+                  helpText="Comma-separated list of dependencies"
+                />
+              </div>
+            )}
+          </div>
+          
+          {/* Configuration Fields */}
+          <div className="bg-gradient-to-br from-slate-50/50 to-white/50 rounded-xl p-6 border border-slate-200/50 backdrop-blur-sm">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4">Configuration</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <FormSelect
+                label="Runtime"
+                name="runtime"
+                value={formData.runtime}
+                onChange={handleChange}
+                required
+              >
+                <option value="nodejs">Node.js</option>
+                <option value="python">Python</option>
+                <option value="java">Java</option>
+              </FormSelect>
+              
+              <FormSelect
+                label="Memory Limit"
+                name="memory_limit"
+                value={formData.memory_limit}
+                onChange={handleChange}
+                required
+              >
+                <option value="128MB">128 MB</option>
+                <option value="256MB">256 MB</option>
+                <option value="512MB">512 MB</option>
+                <option value="1GB">1 GB</option>
+                <option value="2GB">2 GB</option>
+              </FormSelect>
+              
+              <FormInput
+                label="Timeout (seconds)"
+                name="timeout"
+                type="number"
+                value={formData.timeout}
+                onChange={handleChange}
+                min="1"
+                max="180"
                 required
               />
             </div>
-            <div className="form-group">
-              <label htmlFor="dependencies">Dependencies (comma-separated)</label>
-              <input
-                type="text"
-                id="dependencies"
-                name="dependencies"
-                value={formData.dependencies}
-                onChange={handleChange}
-                placeholder="express, axios, dotenv"
-              />
-            </div>
-          </>
-        )}
-        
-        {/* Common Fields */}
-        <div className="form-row">
-          <div className="form-group">
-            <label htmlFor="runtime">Runtime</label>
-            <select
-              id="runtime"
-              name="runtime"
-              value={formData.runtime}
-              onChange={handleChange}
-              required
+          </div>
+          
+          {/* Advanced Options */}
+          <div className="bg-gradient-to-br from-slate-50/50 to-white/50 rounded-xl border border-slate-200/50 backdrop-blur-sm">
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="w-full p-6 text-left flex items-center justify-between hover:bg-white/30 transition-colors duration-200 rounded-xl"
             >
-              <option value="nodejs">Node.js</option>
-              <option value="python">Python</option>
-              <option value="java">Java</option>
-            </select>
+              <h3 className="text-lg font-semibold text-slate-800">Advanced Options</h3>
+              <svg
+                className={`w-5 h-5 text-slate-600 transition-transform duration-200 ${showAdvanced ? 'rotate-180' : ''}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            
+            {showAdvanced && (
+              <div className="px-6 pb-6 space-y-6 border-t border-slate-200/50">
+                <div className="pt-6 space-y-6">
+                  <FormInput
+                    label="Start Directory"
+                    name="start_directory"
+                    value={formData.start_directory}
+                    onChange={handleChange}
+                    placeholder="src"
+                    helpText="Optional: Directory to start execution from"
+                  />
+                  
+                  <FormInput
+                    label="Build Command"
+                    name="build_cmd"
+                    value={formData.build_cmd}
+                    onChange={handleChange}
+                    placeholder="npm start"
+                    helpText="Optional: Command to run your application"
+                  />
+                  
+                  <FormTextarea
+                    label="Environment Variables"
+                    name="env_vars"
+                    value={formData.env_vars}
+                    onChange={handleChange}
+                    placeholder='{"NODE_ENV": "development", "PORT": "3000"}'
+                    rows="4"
+                    helpText="Optional: JSON format environment variables"
+                  />
+                </div>
+              </div>
+            )}
           </div>
           
-          <div className="form-group">
-            <label htmlFor="memory_limit">Memory Limit</label>
-            <select
-              id="memory_limit"
-              name="memory_limit"
-              value={formData.memory_limit}
-              onChange={handleChange}
-              required
+          {/* Submit Button */}
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full flex justify-center items-center px-8 py-4 border-0 text-lg font-semibold rounded-xl shadow-lg text-white transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-offset-2 focus:ring-indigo-500/50 transform ${
+                loading
+                  ? 'bg-slate-400 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 hover:scale-105'
+              }`}
             >
-              <option value="128MB">128 MB</option>
-              <option value="256MB">256 MB</option>
-              <option value="512MB">512 MB</option>
-              <option value="1GB">1 GB</option>
-              <option value="2GB">2 GB</option>
-            </select>
+              {loading ? (
+                <>
+                  <SpinnerIcon />
+                  <span className="ml-2">Submitting Job...</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Submit Job
+                </>
+              )}
+            </button>
           </div>
-          
-          <div className="form-group">
-            <label htmlFor="timeout">Timeout (seconds)</label>
-            <input
-              type="number"
-              id="timeout"
-              name="timeout"
-              value={formData.timeout}
-              onChange={handleChange}
-              min="1"
-              max="180"
-              required
-            />
-          </div>
-        </div>
-        
-        {/* Advanced Options (collapsible) */}
-        <details>
-          <summary>Advanced Options</summary>
-          
-          <div className="form-group">
-            <label htmlFor="start_directory">Start Directory (optional)</label>
-            <input
-              type="text"
-              id="start_directory"
-              name="start_directory"
-              value={formData.start_directory}
-              onChange={handleChange}
-              placeholder="src"
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="build_cmd">Build Command (optional)</label>
-            <input
-              type="text"
-              id="build_cmd"
-              name="build_cmd"
-              value={formData.build_cmd}
-              onChange={handleChange}
-              placeholder="npm start"
-            />
-          </div>
-          
-          <div className="form-group">
-            <label htmlFor="env_vars">Environment Variables (JSON format, optional)</label>
-            <textarea
-              id="env_vars"
-              name="env_vars"
-              value={formData.env_vars}
-              onChange={handleChange}
-              placeholder='{"NODE_ENV": "development", "PORT": "3000"}'
-              rows="3"
-            />
-          </div>
-        </details>
-        
-        <div className="form-actions">
-          <button 
-            type="submit" 
-            className="submit-button" 
-            disabled={loading}
-          >
-            {loading ? 'Submitting...' : 'Submit Job'}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 };
