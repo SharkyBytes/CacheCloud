@@ -1,6 +1,29 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { recalculateContainers } from '../../services/api';
 
 const SystemOverview = ({ metrics, formatBytes, formatDuration }) => {
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [recalculateMessage, setRecalculateMessage] = useState('');
+  
+  // Function to trigger container recalculation
+  const handleRecalculate = async () => {
+    try {
+      setIsRecalculating(true);
+      setRecalculateMessage('');
+      
+      const result = await recalculateContainers();
+      
+      // Show success message
+      setRecalculateMessage(`Containers recalculated: ${result.containers.active}/${result.containers.max}`);
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setRecalculateMessage(''), 5000);
+    } catch (error) {
+      setRecalculateMessage(`Error: ${error.message}`);
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
   if (!metrics) {
     return (
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
@@ -89,11 +112,29 @@ const SystemOverview = ({ metrics, formatBytes, formatDuration }) => {
           </div>
           <h2 className="text-xl font-semibold text-slate-800">System Overview</h2>
         </div>
-        <div className="flex items-center">
-          <div className="w-3 h-3 bg-emerald-500 rounded-full mr-2"></div>
-          <span className="text-sm font-medium text-emerald-600">Online</span>
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleRecalculate}
+            disabled={isRecalculating}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isRecalculating 
+              ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+              : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`}
+          >
+            {isRecalculating ? 'Recalculating...' : 'Recalculate Resources'}
+          </button>
+          <div className="flex items-center">
+            <div className="w-3 h-3 bg-emerald-500 rounded-full mr-2"></div>
+            <span className="text-sm font-medium text-emerald-600">Online</span>
+          </div>
         </div>
       </div>
+      
+      {/* Recalculation message */}
+      {recalculateMessage && (
+        <div className="mb-4 p-2 bg-indigo-50 border border-indigo-100 rounded-lg text-sm text-indigo-700">
+          {recalculateMessage}
+        </div>
+      )}
       
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

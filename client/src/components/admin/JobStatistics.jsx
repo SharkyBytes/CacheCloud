@@ -1,7 +1,34 @@
-import React, { useRef, useEffect, useCallback } from 'react';
+import React, { useRef, useEffect, useCallback, useState } from 'react';
 import Chart from 'chart.js/auto';
+import { clearQueue } from '../../services/api';
 
 const JobStatistics = ({ statistics, formatDuration }) => {
+  const [isClearing, setIsClearing] = useState(false);
+  const [clearMessage, setClearMessage] = useState('');
+  
+  // Function to clear the job queue
+  const handleClearQueue = async () => {
+    if (!window.confirm('Are you sure you want to clear all jobs in the queue? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      setIsClearing(true);
+      setClearMessage('');
+      
+      const result = await clearQueue();
+      
+      // Show success message
+      setClearMessage(`Queue cleared: ${result.jobsCleared.total} jobs removed`);
+      
+      // Clear message after 5 seconds
+      setTimeout(() => setClearMessage(''), 5000);
+    } catch (error) {
+      setClearMessage(`Error: ${error.message}`);
+    } finally {
+      setIsClearing(false);
+    }
+  };
   const jobsChartRef = useRef(null);
   const jobsChart = useRef(null);
   const isInitialized = useRef(false);
@@ -146,10 +173,28 @@ const JobStatistics = ({ statistics, formatDuration }) => {
           </div>
           <h2 className="text-xl font-semibold text-slate-800">Job Statistics</h2>
         </div>
-        <div className="text-sm text-slate-600">
-          {statistics.overall.total} Total Jobs
+        <div className="flex items-center space-x-4">
+          <button
+            onClick={handleClearQueue}
+            disabled={isClearing}
+            className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all ${isClearing 
+              ? 'bg-slate-200 text-slate-500 cursor-not-allowed' 
+              : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+          >
+            {isClearing ? 'Clearing...' : 'Clear Queue'}
+          </button>
+          <div className="text-sm text-slate-600">
+            {statistics.overall.total} Total Jobs
+          </div>
         </div>
       </div>
+      
+      {/* Clear queue message */}
+      {clearMessage && (
+        <div className="mb-4 p-2 bg-red-50 border border-red-100 rounded-lg text-sm text-red-700">
+          {clearMessage}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Chart Section */}
