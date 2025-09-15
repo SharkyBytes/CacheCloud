@@ -27,8 +27,11 @@ const JobsPage = () => {
   const [recentJobs, setRecentJobs] = useState([]);
 
   const handleJobSubmitted = (jobId) => {
-    setSelectedJobId(jobId);
-    setActiveTab('monitor');
+    // Add a small delay to ensure the job is saved to database before switching tabs
+    setTimeout(() => {
+      setSelectedJobId(jobId);
+      setActiveTab('monitor');
+    }, 1000); // 1 second delay
     
     setRecentJobs(prevJobs => {
       const newJobs = [

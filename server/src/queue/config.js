@@ -21,5 +21,29 @@ export const QUEUE_CONFIG = {
   retryBackoffType: 'exponential',
   retryBackoffDelay: 5000,
   removeOnComplete: false,
-  removeOnFail: false
+  removeOnFail: false,
+  
+  // Supported runtimes for raw code execution
+  runtimes: {
+    'nodejs': {
+      image: 'node:18-alpine',
+      fileExtension: '.js',
+      defaultCommand: 'node code.js'
+    },
+    'python': {
+      image: 'python:3.9-alpine',
+      fileExtension: '.py',
+      defaultCommand: 'python code.py'
+    },
+    'java': {
+      image: 'openjdk:11-alpine',
+      fileExtension: '.java',
+      defaultCommand: 'javac Main.java && java Main'
+    },
+    'cpp': {
+      image: 'gcc:alpine',
+      fileExtension: '.cpp',
+      defaultCommand: 'g++ -o program code.cpp && ./program'
+    }
+  }
 };

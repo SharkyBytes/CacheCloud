@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { fetchActiveJobs } from '../../services/api';
+import { fetchActiveJobs, fetchJobLogs } from '../../services/api';
 
 const ActiveJobs = ({ activeJobs, socket }) => {
   const [jobs, setJobs] = useState([]);
@@ -7,13 +7,29 @@ const ActiveJobs = ({ activeJobs, socket }) => {
   const [error, setError] = useState(null);
   const [jobLogs, setJobLogs] = useState({});
 
-  // Fetch active jobs
+  // Fetch active jobs and their logs
   useEffect(() => {
     const loadActiveJobs = async () => {
       try {
         setLoading(true);
         const data = await fetchActiveJobs();
         setJobs(data);
+        
+        // Fetch logs for each active job as fallback
+        for (const job of data) {
+          try {
+            const logs = await fetchJobLogs(job.jobId);
+            if (logs.length > 0) {
+              setJobLogs(prev => ({
+                ...prev,
+                [job.jobId]: logs.slice(-50) // Keep last 50 logs
+              }));
+            }
+          } catch (logError) {
+            console.error(`Error fetching logs for job ${job.jobId}:`, logError);
+          }
+        }
+        
         setError(null);
       } catch (err) {
         console.error('Error fetching active jobs:', err);
@@ -33,15 +49,18 @@ const ActiveJobs = ({ activeJobs, socket }) => {
 
   // Subscribe to job logs via WebSocket
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || jobs.length === 0) return;
+
+    console.log('Subscribing to jobs:', jobs.map(j => j.jobId));
 
     // Subscribe to all active jobs
     jobs.forEach(job => {
-      socket.emit('subscribe', job.jobId);
+      socket.emit('join', `job-${job.jobId}`);
     });
 
     // Listen for log updates
-    socket.on('log', (logData) => {
+    const handleLog = (logData) => {
+      console.log('Received log:', logData);
       setJobLogs(prev => ({
         ...prev,
         [logData.jobId]: [
@@ -49,13 +68,16 @@ const ActiveJobs = ({ activeJobs, socket }) => {
           logData
         ]
       }));
-    });
+    };
+
+    socket.on('log', handleLog);
 
     return () => {
       // Unsubscribe from all jobs
       jobs.forEach(job => {
-        socket.emit('unsubscribe', job.jobId);
+        socket.emit('leave', `job-${job.jobId}`);
       });
+      socket.off('log', handleLog);
     };
   }, [socket, jobs]);
 
@@ -193,7 +215,9 @@ const ActiveJobs = ({ activeJobs, socket }) => {
                       </div>
                     ))
                   ) : (
-                    <div className="text-slate-500 italic">No logs available</div>
+                    <div className="text-slate-500 italic">
+                      {job.status === 'active' ? 'Waiting for logs...' : 'No logs available'}
+                    </div>
                   )}
                 </div>
               </div>
