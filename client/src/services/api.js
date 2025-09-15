@@ -183,3 +183,63 @@ export async function submitJob(jobData) {
     throw error;
   }
 }
+
+/**
+ * Recalculate max containers
+ * @returns {Promise<Object>} Recalculation result
+ */
+export async function recalculateContainers() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/metrics/recalculate`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to recalculate containers');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error recalculating containers:', error);
+    throw error;
+  }
+}
+
+/**
+ * Clear all jobs in the queue
+ * @returns {Promise<Object>} Queue clearing result
+ */
+export async function clearQueue() {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/metrics/clear-queue`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! Status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to clear queue');
+    }
+    
+    return data;
+  } catch (error) {
+    console.error('Error clearing queue:', error);
+    throw error;
+  }
+}

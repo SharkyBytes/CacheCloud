@@ -7,7 +7,7 @@ dotenv.config();
 // Hardcoded Redis configuration
 const redisConfig = {
   port: 6379,
-  host: "10.147.201.102",
+  host: "127.0.0.1",
   maxRetriesPerRequest: null,
   enableReadyCheck: false,
   retryStrategy: (times) => {
