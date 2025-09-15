@@ -149,7 +149,6 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
 
     try {
       const submissionData = {
-        submission_type: formType,
         memory_limit: formData.memory_limit,
         timeout: parseInt(formData.timeout) * 1000,
       };
@@ -166,6 +165,7 @@ const JobSubmissionForm = ({ onJobSubmitted }) => {
           .filter(dep => dep);
       } else if (formType === 'docker_image') {
         submissionData.docker_image = formData.docker_image;
+        // Note: submission_type will be determined server-side based on presence of docker_image
       }
 
       if (formData.start_directory) {

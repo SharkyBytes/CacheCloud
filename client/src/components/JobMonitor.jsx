@@ -106,8 +106,11 @@ const JobMonitor = ({ jobId }) => {
         setJob(prevJob => ({
           ...prevJob,
           status: statusData.status,
-          exitCode: statusData.exitCode,
-          duration: statusData.duration
+          result: {
+            ...prevJob?.result,
+            exitCode: statusData.exitCode,
+            duration: statusData.duration
+          }
         }));
       }
     });
@@ -225,12 +228,16 @@ const JobMonitor = ({ jobId }) => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'N/A';
+    if (!dateString || dateString === 'N/A') return 'N/A';
     try {
-      return new Date(dateString).toLocaleString();
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return 'Invalid Date';
+      }
+      return date.toLocaleString();
     } catch (err) {
       console.warn('Error formatting date:', err);
-      return dateString || 'N/A';
+      return 'Invalid Date';
     }
   };
 
@@ -263,6 +270,33 @@ const JobMonitor = ({ jobId }) => {
     }
   };
 
+  // Calculate duration from result or timestamps if available
+  const getDuration = () => {
+    // First try to get duration from result
+    const resultDuration = getJobValue('result.duration');
+    if (resultDuration && resultDuration !== 'N/A') {
+      return resultDuration;
+    }
+    
+    // Try to calculate from timestamps
+    const processedAt = getJobValue('processedAt');
+    const finishedAt = getJobValue('finishedAt');
+    
+    if (processedAt && processedAt !== 'N/A' && finishedAt && finishedAt !== 'N/A') {
+      try {
+        const start = new Date(processedAt).getTime();
+        const end = new Date(finishedAt).getTime();
+        if (!isNaN(start) && !isNaN(end)) {
+          return end - start;
+        }
+      } catch (err) {
+        console.warn('Error calculating duration from timestamps:', err);
+      }
+    }
+    
+    return null;
+  };
+
   const jobDetails = [
     { label: 'Type', value: getJobValue('data.submission_type'), icon: '📋' },
     { label: 'Runtime', value: getJobValue('data.runtime'), icon: '⚙️' },
@@ -270,7 +304,7 @@ const JobMonitor = ({ jobId }) => {
     { label: 'Submitted', value: formatDate(getJobValue('data.submitted_at') || getJobValue('createdAt')), icon: '📤' },
     { label: 'Started', value: formatDate(getJobValue('processedAt')), icon: '▶️' },
     { label: 'Completed', value: formatDate(getJobValue('finishedAt')), icon: '✅' },
-    { label: 'Duration', value: formatDuration(getJobValue('duration')), icon: '⏱️' },
+    { label: 'Duration', value: formatDuration(getDuration()), icon: '⏱️' },
     { label: 'Exit Code', value: getJobValue('result.exitCode', 'N/A'), icon: '🔢' }
   ];
 

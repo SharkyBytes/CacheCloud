@@ -11,11 +11,26 @@ router.get("/system", async (req, res) => {
   try {
     const metrics = getLatestMetrics();
     
+    console.log('[DEBUG] System metrics request - metrics available:', !!metrics);
+    
     if (!metrics) {
-      return res.status(503).json({
-        success: false,
-        error: "Metrics collection not started or not available yet"
-      });
+      // Try to collect metrics immediately
+      try {
+        const freshMetrics = await collectMetrics();
+        console.log('[DEBUG] Collected fresh metrics:', !!freshMetrics);
+        
+        return res.status(200).json({
+          success: true,
+          metrics: freshMetrics
+        });
+      } catch (collectError) {
+        console.error('[ERROR] Failed to collect fresh metrics:', collectError);
+        return res.status(503).json({
+          success: false,
+          error: "Metrics collection not started or not available yet",
+          debug: collectError.message
+        });
+      }
     }
     
     res.status(200).json({
@@ -246,6 +261,54 @@ router.post("/cleanup-jobs", async (req, res) => {
     res.status(500).json({
       success: false,
       error: err.message || "Failed to clean up jobs"
+    });
+  }
+});
+
+// Debug endpoint to test metrics collection
+router.get("/debug", async (req, res) => {
+  try {
+    console.log('[DEBUG] Debug endpoint called');
+    
+    // Test basic system info
+    const basicInfo = {
+      platform: process.platform,
+      arch: process.arch,
+      nodeVersion: process.version,
+      uptime: process.uptime(),
+      memoryUsage: process.memoryUsage(),
+      cpuUsage: process.cpuUsage()
+    };
+    
+    // Test metrics collection
+    let metricsTest = null;
+    try {
+      metricsTest = await collectMetrics();
+      console.log('[DEBUG] Metrics collection test successful');
+    } catch (error) {
+      console.error('[DEBUG] Metrics collection test failed:', error);
+      metricsTest = { error: error.message };
+    }
+    
+    // Test current metrics
+    const currentMetrics = getLatestMetrics();
+    
+    res.status(200).json({
+      success: true,
+      debug: {
+        basicInfo,
+        metricsTest: !!metricsTest && !metricsTest.error,
+        currentMetrics: !!currentMetrics,
+        metricsTestResult: metricsTest,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (err) {
+    console.error("[ERROR] Debug endpoint failed:", err);
+    res.status(500).json({
+      success: false,
+      error: err.message,
+      stack: err.stack
     });
   }
 });
