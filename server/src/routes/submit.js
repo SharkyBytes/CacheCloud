@@ -169,11 +169,24 @@ const handleSubmit = async (req, res) => {
                 // Don't fail the request if database save fails
             }
 
+            // Publish initial job status with all available data
+            try {
+                const { publishJobStatus } = await import('../pubsub/redis_pubsub.js');
+                await publishJobStatus(job.id, 'queued', {
+                    data: jobPayload,
+                    submittedAt: jobPayload.submitted_at,
+                    status: 'queued'
+                });
+            } catch (pubError) {
+                console.error('[ERROR] Failed to publish initial job status:', pubError);
+            }
+
             res.status(200).json({
                 success: true,
                 jobId: job.id,
                 message: "Job submitted successfully",
-                status: "queued"
+                status: "queued",
+                data: jobPayload
             });
         } catch (queueError) {
             console.error('[ERROR] Queue error:', queueError);

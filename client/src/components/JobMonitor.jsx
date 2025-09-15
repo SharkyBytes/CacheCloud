@@ -106,10 +106,15 @@ const JobMonitor = ({ jobId }) => {
         setJob(prevJob => ({
           ...prevJob,
           status: statusData.status,
+          data: statusData.data || prevJob?.data,
+          processedAt: statusData.processedAt || prevJob?.processedAt,
+          finishedAt: statusData.finishedAt || prevJob?.finishedAt,
+          submittedAt: statusData.submittedAt || prevJob?.submittedAt,
           result: {
             ...prevJob?.result,
             exitCode: statusData.exitCode,
-            duration: statusData.duration
+            duration: statusData.duration,
+            cost: statusData.cost
           }
         }));
       }
@@ -305,7 +310,8 @@ const JobMonitor = ({ jobId }) => {
     { label: 'Started', value: formatDate(getJobValue('processedAt')), icon: '▶️' },
     { label: 'Completed', value: formatDate(getJobValue('finishedAt')), icon: '✅' },
     { label: 'Duration', value: formatDuration(getDuration()), icon: '⏱️' },
-    { label: 'Exit Code', value: getJobValue('result.exitCode', 'N/A'), icon: '🔢' }
+    { label: 'Exit Code', value: getJobValue('result.exitCode', 'N/A'), icon: '🔢' },
+    { label: 'Cost', value: getJobValue('result.cost.formattedCost', '$0.000000'), icon: '💰' }
   ];
 
   return (

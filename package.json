@@ -1,0 +1,29 @@
+{
+    "name": "cachecloud",
+    "version": "1.0.0",
+    "description": "CacheCloud - Job Processing Platform",
+    "type": "module",
+    "scripts": {
+        "dev": "node start-dev.js",
+        "dev-safe": "npm run start-server & cd client && npm run dev-safe",
+        "install-all": "cd server && npm install && cd ../client && npm install",
+        "start-server": "cd server && npm run dev",
+        "start-client": "cd client && npm run dev",
+        "start-client-safe": "cd client && npm run dev-safe",
+        "build": "cd client && npm run build",
+        "test": "node test-setup.js",
+        "fix-port": "node fix-port-issues.js",
+        "fix-windows": "powershell -ExecutionPolicy Bypass -File fix-windows-ports.ps1",
+        "check-node": "node check-node-version.js"
+    },
+    "keywords": [
+        "job-processing",
+        "queue",
+        "dashboard"
+    ],
+    "author": "E6Data Team",
+    "license": "MIT",
+    "dependencies": {
+        "node-fetch": "^3.3.2"
+    }
+}

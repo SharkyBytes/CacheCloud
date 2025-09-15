@@ -191,26 +191,15 @@ export async function collectMetrics() {
     }
   };
   
-  // Save metrics to database and publish to Redis (non-blocking)
+  // Publish to Redis only (non-blocking)
   setImmediate(async () => {
     try {
-      const metricsData = {
-        totalMemory: memory.total,
-        freeMemory: memory.free,
-        cpuUsage: cpuStats.usage,
-        activeContainers: activeContainers,
-        queuedJobs: queueStats.waiting + queueStats.delayed
-      };
-      
-      // Run database save and Redis publish in parallel, don't wait
-      Promise.allSettled([
-        db.saveSystemMetrics(metricsData),
-        publishSystemMetrics(metrics)
-      ]).catch(error => {
-        console.error('Error saving/publishing metrics:', error);
+      // Only publish to Redis for real-time updates
+      publishSystemMetrics(metrics).catch(error => {
+        console.error('Error publishing metrics:', error);
       });
     } catch (error) {
-      console.error('Error preparing metrics for save/publish:', error);
+      console.error('Error preparing metrics for publish:', error);
     }
   });
   
@@ -284,11 +273,11 @@ export function startMetricsCollection() {
   metricsInterval = setInterval(async () => {
     try {
       const metrics = await collectMetrics();
-      console.log('Metrics updated:', {
-        cpu: metrics.cpu.usage,
-        memory: metrics.memory.percentUsed,
-        timestamp: metrics.timestamp
-      });
+      // console.log('Metrics updated:', {
+      //   cpu: metrics.cpu.usage,
+      //   memory: metrics.memory.percentUsed,
+      //   timestamp: metrics.timestamp
+      // });
     } catch (error) {
       console.error('Error collecting metrics:', error);
     }

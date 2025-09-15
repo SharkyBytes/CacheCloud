@@ -5,6 +5,7 @@ import { runJobInContainer } from '../docker/index.js';
 import { queueStatusUpdate, queueLogUpdate } from './status_queue.js';
 import { publishJobStatus } from '../pubsub/redis_pubsub.js';
 import { initializeRetrySystem } from './enhanced_retries.js';
+import { calculateJobCost } from '../utils/cost_calculator.js';
 import db from '../db/index.js';
 
 // Initialize the system
@@ -24,9 +25,9 @@ const worker = new Worker(
       // Save job to database
       await db.saveJob(job, 'waiting');
       
-      // Queue status update and publish to Redis
-      await queueStatusUpdate(job.id, 'waiting');
-      await publishJobStatus(job.id, 'waiting');
+      // Queue status update and publish to Redis with job data
+      await queueStatusUpdate(job.id, 'waiting', { data: job.data });
+      await publishJobStatus(job.id, 'waiting', { data: job.data });
     } catch (dbError) {
       console.error(`[ERROR] Failed to save job to database: ${dbError.message}`);
     }
@@ -45,10 +46,27 @@ const worker = new Worker(
     }
     
     // Queue status update - job is now active
-    await queueStatusUpdate(job.id, 'active');
-    await publishJobStatus(job.id, 'active');
-    
-    // Run the job in Docker
+      // Calculate initial cost estimate and prepare status data
+      const initialCost = calculateJobCost(job);
+      const jobData = {
+        data: job.data,
+        cost: initialCost,
+        processedAt: new Date().toISOString()
+      };
+
+      await queueStatusUpdate(job.id, 'active', jobData);
+      await publishJobStatus(job.id, 'active', jobData);
+      
+      // Store the interval ID in a global object for cleanup
+      global.costUpdateIntervals = global.costUpdateIntervals || {};
+      global.costUpdateIntervals[job.id] = setInterval(() => {
+        const currentCost = calculateJobCost(job);
+        publishJobStatus(job.id, 'active', {
+          data: job.data,
+          cost: currentCost,
+          processedAt: job.processedOn
+        }).catch(console.error);
+      }, 1000); // Update cost every second    // Run the job in Docker
     const result = await runJobInContainer(
       job, 
       resourceManager.getWorkspaceDir(), 
@@ -83,9 +101,20 @@ worker.on('completed', async (job, result) => {
     const startTime = job.processedOn || Date.now();
     const endTime = job.finishedOn || Date.now();
     
+    // Clear cost update interval if it exists
+    if (global.costUpdateIntervals && global.costUpdateIntervals[job.id]) {
+      clearInterval(global.costUpdateIntervals[job.id]);
+      delete global.costUpdateIntervals[job.id];
+    }
+
+    const finalCost = calculateJobCost(job);
     const jobResult = {
+      data: job.data,
       exitCode: result.exitCode || 0,
-      duration: Math.max(0, endTime - startTime) // Ensure non-negative duration
+      duration: Math.max(0, endTime - startTime), // Ensure non-negative duration
+      cost: finalCost,
+      processedAt: new Date(startTime).toISOString(),
+      finishedAt: new Date(endTime).toISOString()
     };
     
     console.log(`Job ${job.id} duration: ${jobResult.duration}ms`);

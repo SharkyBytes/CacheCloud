@@ -189,7 +189,8 @@ function buildDockerCommand({
           `${envArgs} ` +
           `${dockerImage} ` +
           `/bin/sh -c "${build_cmd}"`;
-      } else {
+      }
+       else {
         // No custom command, let the image run its default command
         return `docker run --rm ` +
           `--name e6data-${jobId} ` +

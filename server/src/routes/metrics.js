@@ -95,7 +95,6 @@ router.get("/jobs", async (req, res) => {
 router.get("/dashboard", async (req, res) => {
   try {
     const metrics = getLatestMetrics();
-    const dbStats = await db.getJobStatistics();
     
     if (!metrics) {
       return res.status(503).json({
@@ -113,12 +112,12 @@ router.get("/dashboard", async (req, res) => {
       jobs: {
         queue: metrics.queue,
         overall: {
-          total: parseInt(dbStats.total_jobs) || 0,
-          completed: parseInt(dbStats.completed_jobs) || 0,
-          failed: parseInt(dbStats.failed_jobs) || 0,
-          active: parseInt(dbStats.active_jobs) || 0,
-          queued: parseInt(dbStats.queued_jobs) || 0,
-          avgDuration: parseFloat(dbStats.avg_duration) || 0
+          total: metrics.queue.total || 0,
+          completed: metrics.queue.completed || 0,
+          failed: metrics.queue.failed || 0,
+          active: metrics.queue.active || 0,
+          queued: (metrics.queue.waiting || 0) + (metrics.queue.delayed || 0),
+          avgDuration: 0 // Since we're not storing metrics in DB anymore
         }
       },
       timestamp: metrics.timestamp
