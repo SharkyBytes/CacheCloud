@@ -238,7 +238,7 @@ const JobStatistics = ({ queue, overall }) => {
             </div>
             <div className="bg-slate-50 rounded-lg p-2">
               <div className="text-slate-600">Failed</div>
-              <div className="font-bold text-red-600">{overall.failed}</div>
+              <div className="font-bold text-red-600">{queue.failed}</div>
             </div>
             <div className="bg-slate-50 rounded-lg p-2">
               <div className="text-slate-600">Avg Duration</div>

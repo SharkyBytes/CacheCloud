@@ -156,9 +156,9 @@ const JobStatistics = ({ statistics, formatDuration }) => {
 
   const jobStats = [
     { label: 'Completed', value: statistics.overall.completed, color: 'bg-emerald-500', textColor: 'text-emerald-600' },
-    { label: 'Failed', value: statistics.overall.failed, color: 'bg-red-500', textColor: 'text-red-600' },
-    { label: 'Active', value: statistics.overall.active, color: 'bg-blue-500', textColor: 'text-blue-600' },
-    { label: 'Queued', value: statistics.overall.queued, color: 'bg-amber-500', textColor: 'text-amber-600' }
+    { label: 'Failed', value: statistics.queue.failed, color: 'bg-red-500', textColor: 'text-red-600' },
+    { label: 'Active', value: statistics.queue.active, color: 'bg-blue-500', textColor: 'text-blue-600' },
+    { label: 'Queued', value: statistics.queue.waiting, color: 'bg-amber-500', textColor: 'text-amber-600' }
   ];
 
   return (
