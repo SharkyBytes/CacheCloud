@@ -313,7 +313,7 @@ const JobMonitor = ({ jobId }) => {
     { label: 'Completed', value: formatDate(getJobValue('finishedAt')), icon: '✅' },
     { label: 'Duration', value: formatDuration(getDuration()), icon: '⏱️' },
     { label: 'Exit Code', value: getJobValue('result.exitCode', 'N/A'), icon: '🔢' },
-    { label: 'Cost', value: getJobValue('result.cost.formattedCost', '$0.000000'), icon: '💰' }
+    { label: 'Cost', value: getJobValue('costInfo.cost.formattedCost', '$0.000000'), icon: '💰' }
   ];
 
   return (
