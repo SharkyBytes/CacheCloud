@@ -189,7 +189,8 @@ function buildDockerCommand({
           `${envArgs} ` +
           `${dockerImage} ` +
           `/bin/sh -c "${build_cmd}"`;
-      } else {
+      }
+       else {
         // No custom command, let the image run its default command
         return `docker run --rm ` +
           `--name e6data-${jobId} ` +
@@ -303,32 +304,46 @@ async function executeDockerCommand(dockerCmd, jobId, timeout) {
       process.stdout.on('data', async (data) => {
         const chunk = data.toString();
         output += chunk;
-        const trimmedChunk = chunk.trim();
-        console.log(`[Job ${jobId}] ${trimmedChunk}`);
+        const lines = chunk.split('\n');
         
-        // Only publish to Redis (which will then emit to WebSocket via pubsub)
-        try {
-          // Store in memory only, don't save to DB
-          await queueLogUpdate(jobId, 'stdout', trimmedChunk, false);
-          await publishJobLogs(jobId, 'stdout', trimmedChunk);
-        } catch (error) {
-          console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
+        // Process each line separately
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine) {
+            console.log(`[Job ${jobId}] ${trimmedLine}`);
+            
+            // Publish immediately to Redis for real-time updates
+            try {
+              await publishJobLogs(jobId, 'stdout', trimmedLine);
+              // Store in memory for later persistence
+              await queueLogUpdate(jobId, 'stdout', trimmedLine, false);
+            } catch (error) {
+              console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
+            }
+          }
         }
       });
       
       process.stderr.on('data', async (data) => {
         const chunk = data.toString();
         output += chunk;
-        const trimmedChunk = chunk.trim();
-        console.error(`[Job ${jobId}] ${trimmedChunk}`);
+        const lines = chunk.split('\n');
         
-        // Only publish to Redis (which will then emit to WebSocket via pubsub)
-        try {
-          // Store in memory only, don't save to DB
-          await queueLogUpdate(jobId, 'stderr', trimmedChunk, false);
-          await publishJobLogs(jobId, 'stderr', trimmedChunk);
-        } catch (error) {
-          console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
+        // Process each line separately
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (trimmedLine) {
+            console.error(`[Job ${jobId}] ${trimmedLine}`);
+            
+            // Publish immediately to Redis for real-time updates
+            try {
+              await publishJobLogs(jobId, 'stderr', trimmedLine);
+              // Store in memory for later persistence
+              await queueLogUpdate(jobId, 'stderr', trimmedLine, false);
+            } catch (error) {
+              console.error(`[ERROR] Failed to queue/publish log update: ${error.message}`);
+            }
+          }
         }
       });
     
