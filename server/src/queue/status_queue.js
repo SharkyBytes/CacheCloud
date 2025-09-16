@@ -133,13 +133,13 @@ export async function queueLogUpdate(jobId, type, content, saveToDb = false) {
   }
   
   // Create a hash of the content to detect duplicates
-  const contentHash = `${type}:${content}`;
+  // Include line number to handle truly identical lines that should be preserved
+  const lineNumber = jobLogs[jobId].length + 1;
+  const contentHash = `${type}:${content}:${lineNumber}`;
   
-  // Only add to memory if we haven't seen this exact log before
-  if (!processedLogs[jobId].has(contentHash)) {
-    jobLogs[jobId].push({ type, content });
-    processedLogs[jobId].add(contentHash);
-  }
+  // Add to memory (with line number tracking to preserve order)
+  jobLogs[jobId].push({ type, content, lineNumber });
+  processedLogs[jobId].add(contentHash);
   
   // Only queue for DB if explicitly requested
   if (saveToDb) {
@@ -164,11 +164,14 @@ export async function saveJobLogsToDatabase(jobId) {
     return null;
   }
   
-  // Group logs by type (stdout/stderr)
+  // Sort logs by line number to maintain order
+  const sortedLogs = [...jobLogs[jobId]].sort((a, b) => a.lineNumber - b.lineNumber);
+  
+  // Group logs by type (stdout/stderr), maintaining order
   const stdout = [];
   const stderr = [];
   
-  for (const logEntry of jobLogs[jobId]) {
+  for (const logEntry of sortedLogs) {
     if (logEntry.type === 'stdout') {
       stdout.push(logEntry.content);
     } else if (logEntry.type === 'stderr') {
