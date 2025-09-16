@@ -56,7 +56,9 @@ const Dashboard = () => {
 
   useEffect(() => {
     const socketInstance = io(API_BASE_URL, {
-      path: '/socket.io'
+      path: '/socket.io',
+      transports: ["websocket"],   
+      withCredentials: true
     });
     setSocket(socketInstance);
 
