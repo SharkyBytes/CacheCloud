@@ -21,7 +21,9 @@ const AdminPage = () => {
   // Initialize socket connection
   useEffect(() => {
     const socketInstance = io(API_BASE_URL, {
-      path: '/socket.io'
+      path: '/socket.io',
+      transports: ["websocket"],   // 🚀 Skip polling
+      withCredentials: true
     });
     setSocket(socketInstance);
 

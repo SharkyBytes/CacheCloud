@@ -86,7 +86,9 @@ const JobMonitor = ({ jobId }) => {
 
     // Make sure we're connecting to the WebSocket endpoint correctly
     const socketInstance = io(API_BASE_URL, {
-      path: '/socket.io'
+      path: '/socket.io',
+      transports: ["websocket"],   // 🚀 Skip polling
+      withCredentials: true
     });
     setSocket(socketInstance);
 
